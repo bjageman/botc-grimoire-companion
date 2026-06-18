@@ -245,7 +245,7 @@ export default function StandardSetup() {
   const allAssigned = players.length >= 5 && players.every(p => p.roleId);
 
   return (
-    <div className="min-h-screen bg-clocktower-night text-clocktower-parchment p-4 font-sans max-w-lg mx-auto">
+    <div className="min-h-screen bg-clocktower-night text-clocktower-parchment p-4 font-sans max-w-xl mx-auto">
       <header className="flex justify-between items-center mb-6 border-b border-clocktower-blood pb-2">
         <div className="flex items-center gap-3">
           <a href="#/" className="text-gray-500 hover:text-gray-300 transition-colors text-sm">← Home</a>
@@ -445,7 +445,7 @@ export default function StandardSetup() {
             </div>
           </div>
 
-          <div className="relative w-full aspect-square bg-gray-950/40 rounded-full border border-gray-900/60 shadow-inner flex items-center justify-center overflow-visible my-4 max-w-[380px] mx-auto">
+          <div className="relative w-full aspect-square bg-gray-950/40 rounded-[40px] border border-gray-900/60 shadow-inner flex items-center justify-center overflow-visible my-4 max-w-[450px] mx-auto">
             <div className="absolute w-20 h-20 rounded-full border border-clocktower-blood/10 flex flex-col items-center justify-center pointer-events-none bg-clocktower-night/30">
               <span className="text-[10px] text-clocktower-blood/40 font-serif tracking-widest font-bold">BOTC</span>
               <span className="text-[8px] text-gray-700 font-mono mt-0.5">NIGHT</span>
@@ -455,7 +455,7 @@ export default function StandardSetup() {
               const total = players.length;
               const angle = (index * (360 / total) - 90) * (Math.PI / 180);
 
-              const radiusPercent = 36;
+              const radiusPercent = 38;
               const leftPos = 50 + radiusPercent * Math.cos(angle);
               const topPos = 50 + radiusPercent * Math.sin(angle);
 
@@ -476,7 +476,7 @@ export default function StandardSetup() {
                     <button
                       onClick={() => togglePlayerDead(p.id)}
                       className={cn(
-                        "w-14 h-14 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-md relative",
+                        "w-16 h-16 rounded-full border-2 flex flex-col items-center justify-center transition-all shadow-md relative",
                         p.isDead
                           ? "bg-black border-gray-800 text-gray-600 scale-95 opacity-50"
                           : "bg-gray-900 border-gray-700 text-clocktower-parchment hover:border-gray-500"
@@ -491,21 +491,21 @@ export default function StandardSetup() {
                       )} />
 
                       <span className={cn(
-                        "text-[10px] font-bold font-sans tracking-tighter mt-1 truncate max-w-[50px] text-center leading-tight",
+                        "text-[10px] font-bold font-sans tracking-tighter mt-1.5 truncate max-w-[58px] text-center leading-tight",
                         p.isDead && "line-through text-gray-700"
                       )}>
-                        {p.name.substring(0, 8)}
+                        {p.name.substring(0, 12)}
                       </span>
 
                       <span className={cn(
-                        "text-[8px] font-semibold truncate max-w-[50px] leading-none text-gray-400 mt-0.5 px-0.5 text-center",
+                        "text-[8px] font-semibold truncate max-w-[58px] leading-none text-gray-400 mt-0.5 px-0.5 text-center",
                         roleObj?.team === 'townsfolk' && "text-clocktower-townsfolk/80",
                         roleObj?.team === 'outsider' && "text-clocktower-outsider/80",
                         roleObj?.team === 'minion' && "text-clocktower-minion/80",
                         roleObj?.team === 'demon' && "text-clocktower-demon/80",
                         p.isDead && "text-gray-700"
                       )}>
-                        {roleObj?.name.substring(0, 8)}
+                        {roleObj?.name.substring(0, 12)}
                       </span>
                     </button>
 
@@ -524,7 +524,7 @@ export default function StandardSetup() {
                       DRK
                     </button>
 
-                    <div className="absolute top-12 scale-0 group-hover:scale-100 bg-gray-900/95 border border-gray-800 p-2 rounded text-center shadow-xl transition-all z-50 pointer-events-none min-w-[100px]">
+                    <div className="absolute top-14 scale-0 group-hover:scale-100 bg-gray-900/95 border border-gray-800 p-2 rounded text-center shadow-xl transition-all z-50 pointer-events-none min-w-[100px]">
                       <p className="font-bold text-xs text-white">{p.name}</p>
                       <p className={cn(
                         "text-[10px] font-medium",
