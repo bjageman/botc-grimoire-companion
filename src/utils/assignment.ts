@@ -1,0 +1,320 @@
+import type { Role, Player, AssignmentResult } from '../types';
+import { DISTRIBUTION } from '../constants';
+import rolesData from '../roles.json';
+
+export function assignCharacters(players: Player[], allRoles: Role[]): AssignmentResult[] | null {
+  const N = players.length;
+  if (N < 5) return null;
+
+  const base = DISTRIBUTION[N] || { townsfolk: 0, outsider: 0, minion: 0, demon: 0 };
+
+  const hasPref = (roleId: string) => players.some(p => 
+    p.preferences?.townsfolk.includes(roleId) ||
+    p.preferences?.outsider.includes(roleId) ||
+    p.preferences?.minion.includes(roleId) ||
+    p.preferences?.demon.includes(roleId)
+  );
+
+  const randomChoice = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+  const shuffle = <T,>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+
+  const selectRoleForPlayer = (player: Player, team: Role['team'], usedRoleIds: Set<string>): { role: Role; fromPref: boolean } => {
+    const prefs = player.preferences?.[team] || [];
+    // Exclude special setup roles from normal random assignment
+    const availablePrefs = prefs.filter(id => 
+      !usedRoleIds.has(id) && 
+      id !== 'legion' && 
+      id !== 'riot' && 
+      id !== 'atheist' &&
+      id !== 'drunk' &&
+      id !== 'marionette'
+    );
+    
+    if (availablePrefs.length > 0) {
+      const id = randomChoice(availablePrefs);
+      const role = allRoles.find(r => r.id === id);
+      if (role) return { role, fromPref: true };
+    }
+    
+    const teamRoles = allRoles.filter(r => 
+      r.team === team && 
+      !usedRoleIds.has(r.id) &&
+      r.id !== 'legion' &&
+      r.id !== 'riot' &&
+      r.id !== 'atheist' &&
+      r.id !== 'drunk' &&
+      r.id !== 'marionette'
+    );
+    if (teamRoles.length > 0) {
+      const role = randomChoice(teamRoles);
+      return { role, fromPref: false };
+    }
+    
+    const fallbackRoles = allRoles.filter(r => 
+      r.team === team &&
+      r.id !== 'legion' &&
+      r.id !== 'riot' &&
+      r.id !== 'atheist' &&
+      r.id !== 'drunk' &&
+      r.id !== 'marionette'
+    );
+    return { role: randomChoice(fallbackRoles), fromPref: false };
+  };
+
+  // Perform a single initial shuffle to select candidate roles and modes based on the selected demon candidate
+  const initialShuffledPlayers = shuffle(players);
+  const demonCandidate = initialShuffledPlayers[0];
+
+  const modes: ('normal' | 'legion' | 'riot' | 'atheist')[] = ['normal'];
+  
+  // Legion and Riot are only possible if the randomly selected demon candidate preferred them
+  if (demonCandidate.preferences?.demon.includes('legion')) {
+    modes.push('legion');
+  }
+  if (demonCandidate.preferences?.demon.includes('riot')) {
+    modes.push('riot');
+  }
+  // Atheist remains randomized globally based on Townsfolk preferences
+  if (hasPref('atheist')) {
+    modes.push('atheist');
+  }
+
+  const mode = modes[Math.floor(Math.random() * modes.length)];
+
+  if (mode === 'legion') {
+    const L = Math.round(N * 0.6);
+    const usedRoleIds = new Set<string>();
+    const assignment: AssignmentResult[] = [];
+    
+    const legionRole = allRoles.find(r => r.id === 'legion')!;
+    for (let i = 0; i < L; i++) {
+      assignment.push({
+        player: initialShuffledPlayers[i],
+        role: legionRole,
+        fromPref: !!initialShuffledPlayers[i].preferences?.demon.includes('legion')
+      });
+    }
+    
+    for (let i = L; i < N; i++) {
+      const p = initialShuffledPlayers[i];
+      const { role, fromPref } = selectRoleForPlayer(p, 'townsfolk', usedRoleIds);
+      usedRoleIds.add(role.id);
+      assignment.push({ player: p, role, fromPref });
+    }
+    
+    return assignment;
+  }
+
+  if (mode === 'riot') {
+    const D = 1 + base.minion;
+    const usedRoleIds = new Set<string>();
+    const assignment: AssignmentResult[] = [];
+    
+    const riotRole = allRoles.find(r => r.id === 'riot')!;
+    for (let i = 0; i < D; i++) {
+      assignment.push({
+        player: initialShuffledPlayers[i],
+        role: riotRole,
+        fromPref: !!initialShuffledPlayers[i].preferences?.demon.includes('riot')
+      });
+    }
+    
+    for (let i = D; i < N; i++) {
+      const p = initialShuffledPlayers[i];
+      const { role, fromPref } = selectRoleForPlayer(p, 'townsfolk', usedRoleIds);
+      usedRoleIds.add(role.id);
+      assignment.push({ player: p, role, fromPref });
+    }
+    
+    return assignment;
+  }
+
+  if (mode === 'atheist') {
+    const includeBalloonist = hasPref('balloonist') && Math.random() < 0.7;
+    const O = base.outsider + (includeBalloonist ? 1 : 0);
+    const T = N - O;
+    
+    const usedRoleIds = new Set<string>();
+    const assignment: AssignmentResult[] = [];
+    
+    const atheistRole = allRoles.find(r => r.id === 'atheist')!;
+    usedRoleIds.add('atheist');
+    
+    assignment.push({
+      player: initialShuffledPlayers[0],
+      role: atheistRole,
+      fromPref: !!initialShuffledPlayers[0].preferences?.townsfolk.includes('atheist')
+    });
+    
+    let assignedT = 1;
+    for (let i = 1; i < N; i++) {
+      const p = initialShuffledPlayers[i];
+      if (assignedT < T) {
+        let roleInfo;
+        if (includeBalloonist && !usedRoleIds.has('balloonist') && (assignedT === T - 1 || Math.random() < 0.3)) {
+          const role = allRoles.find(r => r.id === 'balloonist')!;
+          roleInfo = { role, fromPref: !!p.preferences?.townsfolk.includes('balloonist') };
+        } else {
+          roleInfo = selectRoleForPlayer(p, 'townsfolk', usedRoleIds);
+        }
+        usedRoleIds.add(roleInfo.role.id);
+        assignment.push({ player: p, role: roleInfo.role, fromPref: roleInfo.fromPref });
+        assignedT++;
+      } else {
+        const { role, fromPref } = selectRoleForPlayer(p, 'outsider', usedRoleIds);
+        usedRoleIds.add(role.id);
+        assignment.push({ player: p, role, fromPref });
+      }
+    }
+    
+    return assignment;
+  }
+
+  // Normal Mode
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const shuffledPlayers = attempt === 0 ? initialShuffledPlayers : shuffle(players);
+    const usedRoleIds = new Set<string>();
+    const assignment: AssignmentResult[] = [];
+    
+    const demonPlayer = shuffledPlayers[0];
+    const { role: demonRole, fromPref: demonFromPref } = selectRoleForPlayer(demonPlayer, 'demon', usedRoleIds);
+    usedRoleIds.add(demonRole.id);
+    assignment.push({ player: demonPlayer, role: demonRole, fromPref: demonFromPref });
+    
+    const numMinions = base.minion + (demonRole.id === 'lilmonsta' ? 1 : 0);
+    for (let i = 1; i <= numMinions; i++) {
+      const minionPlayer = shuffledPlayers[i];
+      const { role: minionRole, fromPref: minionFromPref } = selectRoleForPlayer(minionPlayer, 'minion', usedRoleIds);
+      usedRoleIds.add(minionRole.id);
+      assignment.push({ player: minionPlayer, role: minionRole, fromPref: minionFromPref });
+    }
+    
+    const remainingPlayers = shuffledPlayers.slice(1 + numMinions);
+    const tempAssignment: { player: Player; team: 'townsfolk' | 'outsider' }[] = [];
+    for (let i = 0; i < remainingPlayers.length; i++) {
+      const team = (i < base.outsider) ? 'outsider' : 'townsfolk';
+      tempAssignment.push({ player: remainingPlayers[i], team });
+    }
+    
+    const tempUsedRoleIds = new Set(usedRoleIds);
+    const goodAssignments: AssignmentResult[] = [];
+    for (const temp of tempAssignment) {
+      const { role, fromPref } = selectRoleForPlayer(temp.player, temp.team, tempUsedRoleIds);
+      tempUsedRoleIds.add(role.id);
+      goodAssignments.push({ player: temp.player, role, fromPref });
+    }
+    
+    const fullAssignment = [...assignment, ...goodAssignments];
+    let valid = false;
+    
+    for (let adj = 0; adj < 10; adj++) {
+      const hasBaron = fullAssignment.some(a => a.role.id === 'baron');
+      const hasFangGu = fullAssignment.some(a => a.role.id === 'fanggu');
+      const hasBalloonist = fullAssignment.some(a => a.role.id === 'balloonist');
+      const hasGodfather = fullAssignment.some(a => a.role.id === 'godfather');
+      
+      const deltaOut = (hasBaron ? 2 : 0) + (hasFangGu ? 1 : 0) + (hasBalloonist ? 1 : 0);
+      const currentOutsiders = fullAssignment.filter(a => a.role.team === 'outsider');
+      
+      const targetOutMin = base.outsider + deltaOut - (hasGodfather ? 1 : 0);
+      const targetOutMax = base.outsider + deltaOut + (hasGodfather ? 1 : 0);
+      
+      let chosenTargetOut = base.outsider + deltaOut;
+      if (hasGodfather) {
+        if (currentOutsiders.length === targetOutMin) {
+          chosenTargetOut = targetOutMin;
+        } else if (currentOutsiders.length === targetOutMax) {
+          chosenTargetOut = targetOutMax;
+        } else {
+          chosenTargetOut = Math.random() < 0.5 ? targetOutMin : targetOutMax;
+        }
+      }
+      
+      chosenTargetOut = Math.max(0, Math.min(remainingPlayers.length, chosenTargetOut));
+      
+      if (currentOutsiders.length === chosenTargetOut) {
+        const hasChoirboy = fullAssignment.some(a => a.role.id === 'choirboy');
+        const hasKing = fullAssignment.some(a => a.role.id === 'king');
+        const hasHuntsman = fullAssignment.some(a => a.role.id === 'huntsman');
+        const hasDamsel = fullAssignment.some(a => a.role.id === 'damsel');
+        
+        let jinxesMet = true;
+        if (hasChoirboy && !hasKing) {
+          const otherTF = fullAssignment.find(a => a.role.team === 'townsfolk' && a.role.id !== 'choirboy' && a.role.id !== 'balloonist');
+          if (otherTF) {
+            const kingRole = allRoles.find(r => r.id === 'king')!;
+            otherTF.role = kingRole;
+            otherTF.fromPref = !!otherTF.player.preferences?.townsfolk.includes('king');
+          } else {
+            jinxesMet = false;
+          }
+        }
+        
+        if (hasHuntsman && !hasDamsel) {
+          const otherOut = fullAssignment.find(a => a.role.team === 'outsider');
+          if (otherOut) {
+            const damselRole = allRoles.find(r => r.id === 'damsel')!;
+            otherOut.role = damselRole;
+            otherOut.fromPref = !!otherOut.player.preferences?.outsider.includes('damsel');
+          } else {
+            jinxesMet = false;
+          }
+        }
+        
+        if (jinxesMet) {
+          valid = true;
+          break;
+        }
+      }
+      
+      const usedIds = new Set(fullAssignment.map(a => a.role.id));
+      if (currentOutsiders.length < chosenTargetOut) {
+        const tfToChange = fullAssignment.find(a => a.role.team === 'townsfolk' && a.role.id !== 'balloonist' && a.role.id !== 'choirboy' && a.role.id !== 'king');
+        if (tfToChange) {
+          usedIds.delete(tfToChange.role.id);
+          const { role, fromPref } = selectRoleForPlayer(tfToChange.player, 'outsider', usedIds);
+          tfToChange.role = role;
+          tfToChange.fromPref = fromPref;
+        } else {
+          break;
+        }
+      } else if (currentOutsiders.length > chosenTargetOut) {
+        const outToChange = fullAssignment.find(a => a.role.team === 'outsider' && a.role.id !== 'damsel');
+        if (outToChange) {
+          usedIds.delete(outToChange.role.id);
+          const { role, fromPref } = selectRoleForPlayer(outToChange.player, 'townsfolk', usedIds);
+          outToChange.role = role;
+          outToChange.fromPref = fromPref;
+        } else {
+          break;
+        }
+      }
+    }
+    
+    if (valid) {
+      const roleCounts: Record<string, number> = {};
+      for (const a of fullAssignment) {
+        roleCounts[a.role.id] = (roleCounts[a.role.id] || 0) + 1;
+      }
+      let duplicateCheck = true;
+      for (const id in roleCounts) {
+        if (roleCounts[id] > 1 && id !== 'legion' && id !== 'riot') {
+          duplicateCheck = false;
+        }
+      }
+      if (duplicateCheck) {
+        return fullAssignment;
+      }
+    }
+  }
+  
+  return null;
+}
+
+export const getPreferenceLabel = (prefs: string[], defaultLabel: string) => {
+  if (!prefs || prefs.length === 0) return defaultLabel;
+  type RoleEntry = { id: string; name: string };
+  const allRoles = rolesData as RoleEntry[];
+  const names = prefs.map(id => allRoles.find(r => r.id === id)?.name || id);
+  return names.join(', ');
+};
