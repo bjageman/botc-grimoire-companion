@@ -1091,25 +1091,25 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
                 )}>
                   <div>
                     <div className="text-gray-500">TF</div>
-                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isTownsfolkValid ? "text-clocktower-townsfolk" : "text-yellow-500")}>
+                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isTownsfolkValid ? "text-clocktower-townsfolk" : (isLightModeActive ? "text-amber-700" : "text-yellow-500"))}>
                       {validationSummary.counts.townsfolk} / {validationSummary.expected.townsfolk}
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-500">OUT</div>
-                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isOutsiderValid ? "text-clocktower-outsider" : "text-yellow-500")}>
+                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isOutsiderValid ? "text-clocktower-outsider" : (isLightModeActive ? "text-amber-700" : "text-yellow-500"))}>
                       {validationSummary.counts.outsider} / {validationSummary.hasGodfather ? `${validationSummary.expected.outsider - 1} or ${validationSummary.expected.outsider + 1}` : validationSummary.expected.outsider}
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-500">MIN</div>
-                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isMinionValid ? "text-clocktower-minion" : "text-yellow-500")}>
+                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isMinionValid ? "text-clocktower-minion" : (isLightModeActive ? "text-amber-700" : "text-yellow-500"))}>
                       {validationSummary.counts.minion} / {validationSummary.expected.minion}
                     </div>
                   </div>
                   <div>
                     <div className="text-gray-500">DEM</div>
-                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isDemonValid ? "text-clocktower-demon" : "text-yellow-500")}>
+                    <div className={cn("font-bold text-xs mt-0.5", validationSummary.isDemonValid ? "text-clocktower-demon" : (isLightModeActive ? "text-amber-700" : "text-yellow-500"))}>
                       {validationSummary.counts.demon} / {validationSummary.expected.demon}
                     </div>
                   </div>
@@ -1126,7 +1126,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
                 {validationSummary.jinxWarnings.length > 0 && (
                   <div className={cn("border-t pt-2 space-y-1", isLightModeActive ? "border-gray-200" : "border-gray-800")}>
                     {validationSummary.jinxWarnings.map((w, idx) => (
-                      <div key={idx} className="text-[10px] text-yellow-500 flex items-center gap-1 font-medium">
+                      <div key={idx} className={cn("text-[10px] flex items-center gap-1 font-medium", isLightModeActive ? "text-amber-700" : "text-yellow-500")}>
                         <AlertTriangle size={10} /> {w}
                       </div>
                     ))}
