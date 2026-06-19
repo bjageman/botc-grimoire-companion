@@ -775,7 +775,7 @@ export default function WhaleBucket() {
     const count = players.length;
     if (count <= 6) {
       return {
-        boardClass: "w-[92vw] h-[70vw] max-w-[560px] max-h-[340px] rounded-[28px]",
+        boardClass: "w-[92vw] h-[70vw] max-w-[560px] max-h-[440px] rounded-[28px]",
         radiusX: 38,
         radiusY: 36,
         btnStyle: { width: '22cqw', height: '22cqw' } as CSSProperties,
@@ -790,7 +790,7 @@ export default function WhaleBucket() {
       };
     } else if (count <= 10) {
       return {
-        boardClass: "w-[94vw] h-[72vw] max-w-[620px] max-h-[380px] rounded-[34px]",
+        boardClass: "w-[94vw] h-[72vw] max-w-[620px] max-h-[480px] rounded-[34px]",
         radiusX: 40,
         radiusY: 37,
         btnStyle: { width: '18cqw', height: '18cqw' } as CSSProperties,
@@ -805,7 +805,7 @@ export default function WhaleBucket() {
       };
     } else {
       return {
-        boardClass: "w-[96vw] h-[74vw] max-w-[680px] max-h-[420px] rounded-[40px]",
+        boardClass: "w-[96vw] h-[74vw] max-w-[680px] max-h-[540px] rounded-[40px]",
         radiusX: 42,
         radiusY: 38,
         btnStyle: { width: '14.5cqw', height: '14.5cqw' } as CSSProperties,
