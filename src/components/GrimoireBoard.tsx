@@ -170,11 +170,13 @@ export default function GrimoireBoard({
                       height: '100%',
                       objectFit: 'contain',
                       padding: '12%',
-                      opacity: p.isDead ? 0.06 : 0.16,
+                      opacity: timeOfDay === 'day'
+                        ? (p.isDead ? 0.08 : 0.18)
+                        : (p.isDead ? 0.15 : 0.38),
                       pointerEvents: 'none',
                     }}
                     className={cn(
-                      "select-none transition-all duration-200 z-0",
+                      "select-none transition-all duration-200 z-0 group-hover:scale-105",
                       p.isDead && "grayscale"
                     )}
                     onError={(e) => {
