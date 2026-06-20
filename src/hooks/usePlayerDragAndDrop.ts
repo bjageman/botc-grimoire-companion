@@ -42,7 +42,7 @@ export function usePlayerDragAndDrop<T>(items: T[], setItems: (items: T[]) => vo
     setDragOverIndex(null);
   };
 
-  const handleTouchStart = (e: React.TouchEvent, index: number) => {
+  const handleTouchStart = (_e: React.TouchEvent, index: number) => {
     setDraggedIndex(index);
   };
 
