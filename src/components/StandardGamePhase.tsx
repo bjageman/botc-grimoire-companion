@@ -240,10 +240,18 @@ export default function StandardGamePhase({
                   </div>
                   <span className={cn('text-[9px] font-mono w-4 shrink-0', isLightModeActive ? 'text-gray-505' : 'text-gray-600')}>{index + 1}</span>
                   <span className={cn(
-                    'font-medium truncate flex-1 min-w-0',
+                    'font-medium truncate flex-1 min-w-0 flex items-center gap-1',
                     p.isDead && 'line-through text-gray-500',
                     isLightModeActive && !p.isDead ? 'text-clocktower-night' : 'text-gray-200'
-                  )}>{p.name}</span>
+                  )}>
+                    <span className="truncate">{p.name}</span>
+                    {(() => {
+                      const defaultEvil = rObj ? (rObj.team === 'minion' || rObj.team === 'demon') : false;
+                      const isEvil = p.isEvil !== undefined ? p.isEvil : defaultEvil;
+                      const hasAlignmentShift = p.isEvil !== undefined && p.isEvil !== defaultEvil;
+                      return hasAlignmentShift ? (isEvil ? '👿' : '😇') : null;
+                    })()}
+                  </span>
                   <span className={cn(
                     'font-semibold text-[10px] flex items-center gap-1 shrink-0 max-w-[45%] min-w-0',
                     rObj?.team === 'townsfolk' && 'text-clocktower-townsfolk',

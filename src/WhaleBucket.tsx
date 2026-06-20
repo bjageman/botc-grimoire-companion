@@ -251,8 +251,9 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       if (p.id === id) {
         const role = (rolesData as Role[]).find(r => r.id === roleId);
         const isPref = role ? (p.preferences[role.team] || []).includes(roleId) : false;
+        const { isEvil, ...rest } = p;
         return {
-          ...p,
+          ...rest,
           roleId: roleId || undefined,
           assignedFromPref: isPref,
         };
@@ -263,6 +264,18 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   const togglePlayerDead = (id: string) => {
     setPlayers(players.map(p => p.id === id ? { ...p, isDead: !p.isDead } : p));
+  };
+
+  const togglePlayerEvil = (id: string) => {
+    setPlayers(players.map(p => {
+      if (p.id === id) {
+        const roleObj = (rolesData as Role[]).find(r => r.id === p.roleId);
+        const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
+        const currentEvil = p.isEvil !== undefined ? p.isEvil : defaultEvil;
+        return { ...p, isEvil: !currentEvil };
+      }
+      return p;
+    }));
   };
 
   const togglePlayerDrunkOrPoisoned = (id: string) => {
@@ -494,6 +507,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           onUpdateRole={updatePlayerRole}
           onToggleDead={togglePlayerDead}
           onToggleDrunkOrPoisoned={togglePlayerDrunkOrPoisoned}
+          onToggleEvil={togglePlayerEvil}
           onSetSearchingRole={setIsSearchingRole}
           onSetModalRoleSearch={setModalRoleSearch}
         />
