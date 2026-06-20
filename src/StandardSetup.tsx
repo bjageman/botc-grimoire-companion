@@ -396,15 +396,27 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
       )}>
         {/* Navigation & Controls Row */}
         <div className="relative flex justify-center items-center w-full min-h-[36px]">
-          <a
-            href="#/"
-            className={cn(
-              "absolute left-0 transition-colors text-sm",
-              isLightModeActive ? "text-gray-600 hover:text-gray-800" : "text-gray-500 hover:text-gray-300"
-            )}
-          >
-            ← Home
-          </a>
+          {phase === 'setup' ? (
+            <a
+              href="#/"
+              className={cn(
+                "absolute left-0 transition-colors text-lg font-bold px-2",
+                isLightModeActive ? "text-gray-600 hover:text-gray-800" : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              ←
+            </a>
+          ) : (
+            <button
+              onClick={() => setPhase('setup')}
+              className={cn(
+                "absolute left-0 transition-colors text-lg font-bold px-2",
+                isLightModeActive ? "text-gray-600 hover:text-gray-800" : "text-gray-500 hover:text-gray-300"
+              )}
+            >
+              ←
+            </button>
+          )}
           
           <h1 className="text-2xl font-bold text-clocktower-blood tracking-wide text-center">
             Standard Grimoire
