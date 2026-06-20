@@ -133,13 +133,22 @@ export default function GrimoireBoard({
         // Calculate dynamic font size and split name by space to prevent overflow
         const baseFontSizeVal = parseFloat(grimoireConfig.nameStyle.fontSize as string);
         const baseFontSizeUnit = (grimoireConfig.nameStyle.fontSize as string).replace(/[0-9.]/g, '');
-        const nameWords = p.name.split(' ');
-        const longestWordLength = Math.max(...nameWords.map(w => w.length));
+        const nameLength = p.name.length;
+        const longestWordLength = Math.max(...p.name.split(' ').map(w => w.length));
 
         let scaleFactor = 1.0;
-        if (longestWordLength > 10) scaleFactor = 0.65;
+        
+        // Shrink based on the longest word
+        if (longestWordLength > 12) scaleFactor = 0.55;
+        else if (longestWordLength > 10) scaleFactor = 0.65;
         else if (longestWordLength > 8) scaleFactor = 0.75;
-        else if (longestWordLength > 6) scaleFactor = 0.88;
+        else if (longestWordLength > 6) scaleFactor = 0.86;
+        
+        // Shrink based on total length
+        if (nameLength > 18) scaleFactor = Math.min(scaleFactor, 0.55);
+        else if (nameLength > 14) scaleFactor = Math.min(scaleFactor, 0.65);
+        else if (nameLength > 10) scaleFactor = Math.min(scaleFactor, 0.78);
+        else if (nameLength > 8) scaleFactor = Math.min(scaleFactor, 0.9);
 
         const dynamicFontSize = `${baseFontSizeVal * scaleFactor}${baseFontSizeUnit}`;
 
