@@ -228,9 +228,19 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       return;
     }
     
+    const hasChoirboy = result.some(r => r.role.id === 'choirboy');
+    const hasHuntsman = result.some(r => r.role.id === 'huntsman');
+
     const updatedPlayers = players.map(p => {
       const assigned = result.find(r => r.player.id === p.id);
-      let roleId = (assigned?.fromPref || assigned?.role.id === 'legion' || assigned?.role.id === 'king' || assigned?.role.id === 'damsel') ? assigned?.role.id : undefined;
+      let isRevealed = assigned?.fromPref || assigned?.role.id === 'legion';
+      if (hasChoirboy && (assigned?.role.id === 'choirboy' || assigned?.role.id === 'king')) {
+        isRevealed = true;
+      }
+      if (hasHuntsman && (assigned?.role.id === 'huntsman' || assigned?.role.id === 'damsel')) {
+        isRevealed = true;
+      }
+      let roleId = isRevealed ? assigned?.role.id : undefined;
       let isTheLunatic = false;
       let isTheLilMonsta = false;
 

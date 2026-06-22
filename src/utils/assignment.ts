@@ -326,6 +326,13 @@ function assignBaseCharacters(
       const team = (i < targetOutsiders) ? 'outsider' : 'townsfolk';
       tempAssignment.push({ player: remainingPlayers[i], team });
     }
+    tempAssignment.sort((a, b) => {
+      const hasPrefA = (a.player.preferences?.[a.team] || []).length > 0;
+      const hasPrefB = (b.player.preferences?.[b.team] || []).length > 0;
+      if (hasPrefA && !hasPrefB) return -1;
+      if (!hasPrefA && hasPrefB) return 1;
+      return 0;
+    });
     
     const tempUsedRoleIds = new Set(usedRoleIds);
     const goodAssignments: AssignmentResult[] = [];

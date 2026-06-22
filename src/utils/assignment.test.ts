@@ -136,19 +136,24 @@ describe('assignCharacters', () => {
       { id: '5', name: 'Eve', isDead: false, preferences: { townsfolk: [], outsider: [], minion: [], demon: [], traveler: [] } },
     ];
 
-    const result = assignCharacters(players, roles);
-    expect(result).not.toBeNull();
-    if (!result) return;
+    for (let trial = 0; trial < 50; trial++) {
+      const result = assignCharacters(players, roles);
+      expect(result).not.toBeNull();
+      if (!result) return;
 
-    const chefAssignment = result.find(r => r.role.id === 'chef');
-    const kingAssignment = result.find(r => r.role.id === 'king');
+      const chefAssignment = result.find(r => r.role.id === 'chef');
+      const kingAssignment = result.find(r => r.role.id === 'king');
 
-    expect(chefAssignment).toBeDefined();
-    expect(kingAssignment).toBeDefined();
+      expect(kingAssignment).toBeDefined();
 
-    // Bob should get Chef (honored preference)
-    expect(chefAssignment?.player.id).toBe('2');
-    // King should be assigned to one of the neutral players (like Charlie, David or Eve), not Bob
-    expect(kingAssignment?.player.id).not.toBe('2');
+      const bobAssignment = result.find(r => r.player.id === '2');
+      // If Bob was assigned a Townsfolk, it must be Chef (his preference), never King (which would override his preference)
+      if (bobAssignment && bobAssignment.role.team === 'townsfolk') {
+        expect(chefAssignment).toBeDefined();
+        expect(bobAssignment.role.id).toBe('chef');
+      }
+      // King should be assigned to someone else (like Charlie, David or Eve), not Bob
+      expect(kingAssignment?.player.id).not.toBe('2');
+    }
   });
 });
