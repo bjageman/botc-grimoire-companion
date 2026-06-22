@@ -423,11 +423,21 @@ function assignBaseCharacters(
         }
         
         if (hasHuntsman && !hasDamsel) {
-          const otherOut = fullAssignment.find(a => a.role.team === 'outsider');
-          if (otherOut) {
-            const damselRole = allRoles.find(r => r.id === 'damsel')!;
-            otherOut.role = damselRole;
-            otherOut.fromPref = !!otherOut.player.preferences?.outsider.includes('damsel');
+          const damselRole = allRoles.find(r => r.id === 'damsel');
+          if (damselRole) {
+            const otherOut = fullAssignment.find(a => a.role.team === 'outsider');
+            if (otherOut) {
+              otherOut.role = damselRole;
+              otherOut.fromPref = !!otherOut.player.preferences?.outsider.includes('damsel');
+            } else {
+              const otherTF = fullAssignment.find(a => a.role.team === 'townsfolk' && a.role.id !== 'huntsman' && a.role.id !== 'choirboy' && a.role.id !== 'king' && a.role.id !== 'balloonist');
+              if (otherTF) {
+                otherTF.role = damselRole;
+                otherTF.fromPref = !!otherTF.player.preferences?.outsider.includes('damsel');
+              } else {
+                jinxesMet = false;
+              }
+            }
           } else {
             jinxesMet = false;
           }
