@@ -116,6 +116,12 @@ export default function GrimoireBoard({
         >
           {timeOfDay} {dayNumber}
         </span>
+        <span
+          style={grimoireConfig.centerText2Style}
+          className="font-semibold font-sans uppercase tracking-widest mt-0.5 opacity-80"
+        >
+          {players.filter(p => !p.isDead).length} Alive
+        </span>
       </button>
 
       {players.map((p, index) => {
