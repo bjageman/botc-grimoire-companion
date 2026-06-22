@@ -37,6 +37,8 @@ interface WhaleBucketSetupPhaseProps {
   isLightModeActive: boolean;
   excludedRoleIds: string[];
   setExcludedRoleIds: React.Dispatch<React.SetStateAction<string[]>>;
+  allowDuplicateCharacters: boolean;
+  setAllowDuplicateCharacters: (val: boolean) => void;
 }
 
 export default function WhaleBucketSetupPhase({
@@ -67,6 +69,8 @@ export default function WhaleBucketSetupPhase({
   isLightModeActive,
   excludedRoleIds,
   setExcludedRoleIds,
+  allowDuplicateCharacters,
+  setAllowDuplicateCharacters,
 }: WhaleBucketSetupPhaseProps) {
   const [excludeSearchTerm, setExcludeSearchTerm] = useState('');
   const [isExcludeFocused, setIsExcludeFocused] = useState(false);
@@ -296,6 +300,14 @@ export default function WhaleBucketSetupPhase({
 
       {/* Section C: Distribution & Assign Button */}
       <div className="md:col-start-2 md:row-start-1 md:row-span-2 space-y-6 w-full">
+        <button
+          id="random-assign-characters-button"
+          disabled={players.length < 5}
+          onClick={runAssignment}
+          className="w-full bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-black/40 flex items-center justify-center gap-2"
+        >
+          <Sparkles size={16} /> Randomly Assign Characters
+        </button>
         {/* Exclude Characters Widget */}
         <div className={cn(
           "p-4 rounded-lg border flex flex-col gap-3 transition-colors duration-300",
@@ -392,6 +404,31 @@ export default function WhaleBucketSetupPhase({
           )}
         </div>
 
+        {/* Preference Settings Widget */}
+        <div className={cn(
+          "p-4 rounded-lg border flex flex-col gap-3 transition-colors duration-300",
+          isLightModeActive
+            ? "bg-white border-gray-250 text-clocktower-night shadow-sm"
+            : "bg-gray-900/60 border-gray-800/50"
+        )}>
+          <div>
+            <span className={cn("text-xs font-bold block uppercase tracking-wider text-left", isLightModeActive ? "text-gray-700" : "text-gray-300")}>Preference Settings</span>
+            <span className="text-[10px] text-gray-500 block text-left">Configure auto-assign preference behavior</span>
+          </div>
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs font-medium">Allow Duplicate Characters</span>
+            <label className="relative inline-flex items-center cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={allowDuplicateCharacters}
+                onChange={(e) => setAllowDuplicateCharacters(e.target.checked)}
+                className="sr-only peer"
+              />
+              <div className="relative w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-300 peer-checked:after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-clocktower-blood animate-transition"></div>
+            </label>
+          </div>
+        </div>
+
         <section id="standard-base-distribution" className="bg-gray-900 p-4 rounded-lg border border-gray-855">
           <h3 className="text-xs font-bold text-gray-555 uppercase tracking-wider mb-2.5 text-left">Standard Base Distribution</h3>
           {players.length >= 5 ? (() => {
@@ -434,14 +471,7 @@ export default function WhaleBucketSetupPhase({
         </section>
 
 
-        <button
-          id="random-assign-characters-button"
-          disabled={players.length < 5}
-          onClick={runAssignment}
-          className="w-full bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-black/40 flex items-center justify-center gap-2"
-        >
-          <Sparkles size={16} /> Randomly Assign Characters
-        </button>
+        
       </div>
     </div>
   );

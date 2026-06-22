@@ -39,6 +39,9 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   const [newTravelerName, setNewTravelerName] = useState('');
   const [newTravelerRoleId, setNewTravelerRoleId] = useState('beggar');
 
+  // Preference configuration states
+  const [allowDuplicateCharacters, setAllowDuplicateCharacters] = useState<boolean>(false);
+
   // Exclusion states
   const [excludedRoleIds, setExcludedRoleIds] = useState<string[]>(['drunk', 'marionette', 'lunatic']);
 
@@ -69,7 +72,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     const saved = localStorage.getItem('whale-bucket-game');
     if (saved) {
       try {
-        const { players: p, phase: ph, timeOfDay: tod, dayNumber: dn, allowTravelers: at, isLilMonstaGame: lmg, excludedRoleIds: er } = JSON.parse(saved);
+        const { players: p, phase: ph, timeOfDay: tod, dayNumber: dn, allowTravelers: at, isLilMonstaGame: lmg, excludedRoleIds: er, allowDuplicateCharacters: adc } = JSON.parse(saved);
         type SavedPlayer = Omit<Player, 'preferences'> & { preferences?: Partial<Player['preferences']> };
         const validatedPlayers = (p || []).map((player: SavedPlayer) => ({
           ...player,
@@ -89,6 +92,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
         if (at !== undefined) setAllowTravelers(false); // Force traveler selection off
         if (lmg !== undefined) setIsLilMonstaGame(lmg);
         if (er !== undefined) setExcludedRoleIds(er);
+        if (adc !== undefined) setAllowDuplicateCharacters(adc);
 
       } catch (e) {
         console.error(e);
@@ -98,7 +102,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   // Save to localStorage and update document theme
   useEffect(() => {
-    localStorage.setItem('whale-bucket-game', JSON.stringify({ players, phase, timeOfDay, dayNumber, allowTravelers, isLilMonstaGame, excludedRoleIds }));
+    localStorage.setItem('whale-bucket-game', JSON.stringify({ players, phase, timeOfDay, dayNumber, allowTravelers, isLilMonstaGame, excludedRoleIds, allowDuplicateCharacters }));
     
     const isLightMode = theme === 'light';
     if (isLightMode) {
@@ -110,7 +114,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     return () => {
       document.documentElement.classList.remove('theme-light');
     };
-  }, [players, phase, timeOfDay, dayNumber, allowTravelers, theme, isLilMonstaGame, excludedRoleIds]);
+  }, [players, phase, timeOfDay, dayNumber, allowTravelers, theme, isLilMonstaGame, excludedRoleIds, allowDuplicateCharacters]);
 
   const toggleTimeOfDay = () => {
     if (timeOfDay === 'night') {
@@ -181,6 +185,25 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   const autoFillPreferences = (playerId?: string) => {
     const allRoles = rolesData as Role[];
+    const usedPrefs = {
+      townsfolk: new Set<string>(),
+      outsider: new Set<string>(),
+      minion: new Set<string>(),
+      demon: new Set<string>(),
+      traveler: new Set<string>()
+    };
+
+    if (!allowDuplicateCharacters) {
+      for (const p of players) {
+        if (playerId !== undefined && p.id === playerId) continue;
+        for (const t of ['townsfolk', 'outsider', 'minion', 'demon', 'traveler'] as const) {
+          for (const id of p.preferences[t] || []) {
+            usedPrefs[t].add(id);
+          }
+        }
+      }
+    }
+
     setPlayers(players.map(p => {
       if (playerId !== undefined && p.id !== playerId) return p;
       const newPrefs = {
@@ -197,10 +220,24 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       }
       for (const team of teams) {
         if (newPrefs[team].length === 0) {
-          const available = allRoles.filter(r => r.team === team && !excludedRoleIds.includes(r.id));
+          let available = allRoles.filter(r => r.team === team && !excludedRoleIds.includes(r.id));
+          if (!allowDuplicateCharacters) {
+            available = available.filter(r => !usedPrefs[team].has(r.id));
+          }
           if (available.length > 0) {
             const randIdx = Math.floor(Math.random() * available.length);
-            newPrefs[team] = [available[randIdx].id];
+            const chosenId = available[randIdx].id;
+            newPrefs[team] = [chosenId];
+            if (!allowDuplicateCharacters) {
+              usedPrefs[team].add(chosenId);
+            }
+          } else {
+            // Fallback: if we filtered everything out, allow duplicate as a fallback so we don't assign empty
+            const fallbackAvailable = allRoles.filter(r => r.team === team && !excludedRoleIds.includes(r.id));
+            if (fallbackAvailable.length > 0) {
+              const randIdx = Math.floor(Math.random() * fallbackAvailable.length);
+              newPrefs[team] = [fallbackAvailable[randIdx].id];
+            }
           }
         }
       }
@@ -566,6 +603,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           isLightModeActive={isLightModeActive}
           excludedRoleIds={excludedRoleIds}
           setExcludedRoleIds={setExcludedRoleIds}
+          allowDuplicateCharacters={allowDuplicateCharacters}
+          setAllowDuplicateCharacters={setAllowDuplicateCharacters}
         />
       )}
 
