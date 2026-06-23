@@ -323,60 +323,67 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
 
   return (
     <div className={cn(
-      "min-h-screen p-4 sm:p-6 transition-colors duration-300 font-sans",
-      isLightModeActive ? "bg-clocktower-parchment text-clocktower-night" : "bg-clocktower-night text-clocktower-parchment"
+      "min-h-screen p-4 font-sans mx-auto transition-colors duration-300 max-w-xl md:max-w-5xl landscape:max-w-5xl",
+      isLightModeActive
+        ? "bg-clocktower-parchment text-clocktower-night"
+        : "bg-clocktower-night text-clocktower-parchment"
     )}>
       {/* Header */}
-      <header className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 max-w-7xl mx-auto border-b border-gray-800/40 pb-4">
-        <div className="flex items-center gap-3">
-          <a
-            href="#/"
-            className={cn(
-              "p-2 rounded-full border transition-all hover:scale-105",
-              isLightModeActive 
-                ? "bg-white border-gray-300 text-gray-700 hover:bg-gray-50" 
-                : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-800"
-            )}
-            title="Go back to Home"
-          >
-            <ArrowLeft size={16} />
-          </a>
-          <div>
-            <h1 className="text-2xl font-bold text-clocktower-blood">Player Game Tracker</h1>
-            <p className={cn("text-xs font-medium", isLightModeActive ? "text-gray-500" : "text-gray-400")}>
-              Keeps track of players and roles during your game.
-            </p>
+      <header className={cn(
+        "relative flex flex-col items-center justify-center mb-6 border-b pb-3 gap-2.5 w-full",
+        isLightModeActive ? "border-clocktower-blood/20" : "border-clocktower-blood"
+      )}>
+        {/* Navigation & Controls Row */}
+        <div className="relative flex justify-center items-center w-full min-h-[36px]">
+          {phase === 'setup' ? (
+            <a
+              href="#/"
+              className={cn(
+                "absolute left-0 transition-all p-1.5 rounded-full flex items-center justify-center",
+                isLightModeActive 
+                  ? "text-gray-700 hover:text-gray-900 hover:bg-black/5" 
+                  : "text-gray-400 hover:text-white hover:bg-white/10"
+              )}
+              title="Back to home"
+            >
+              <ArrowLeft size={24} />
+            </a>
+          ) : (
+            <button
+              onClick={() => setPhase('setup')}
+              className={cn(
+                "absolute left-0 transition-all p-1.5 rounded-full flex items-center justify-center",
+                isLightModeActive 
+                  ? "text-gray-700 hover:text-gray-900 hover:bg-black/5" 
+                  : "text-gray-400 hover:text-white hover:bg-white/10"
+              )}
+              title="Back to setup"
+            >
+              <ArrowLeft size={24} />
+            </button>
+          )}
+          
+          <h1 className="text-2xl font-bold text-clocktower-blood tracking-wide text-center">
+            Player Game Tracker
+          </h1>
+
+          <div className="absolute right-0 flex items-center gap-1">
+            <button
+              onClick={toggleTheme}
+              className={cn("p-2 transition-colors", isLightModeActive ? "text-gray-600 hover:text-gray-900" : "text-gray-500 hover:text-white")}
+              title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
+            <button
+              id="reset-game-button"
+              onClick={resetGame}
+              className={cn("p-2 transition-colors", isLightModeActive ? "text-gray-600 hover:text-gray-900" : "text-gray-500 hover:text-white")}
+              title="Reset game"
+            >
+              <RefreshCcw size={20} />
+            </button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Reset button */}
-          <button
-            onClick={resetGame}
-            className={cn(
-              "px-3 py-1.5 rounded border text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm",
-              isLightModeActive
-                ? "bg-white hover:bg-red-50 border-gray-300 text-gray-700 hover:text-red-600 hover:border-red-200"
-                : "bg-gray-900 hover:bg-red-950/20 border-gray-800 text-gray-300 hover:text-red-400 hover:border-red-950"
-            )}
-            title="Reset Game"
-          >
-            <RefreshCcw size={12} /> Reset Game
-          </button>
-
-          {/* Theme switcher */}
-          <button
-            onClick={toggleTheme}
-            className={cn(
-              "p-2 rounded-full border transition-all flex items-center justify-center shadow-sm",
-              isLightModeActive
-                ? "bg-white border-gray-300 text-clocktower-night hover:bg-gray-50"
-                : "bg-gray-900 border-gray-800 text-clocktower-parchment hover:bg-gray-800"
-            )}
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-          </button>
         </div>
       </header>
 
