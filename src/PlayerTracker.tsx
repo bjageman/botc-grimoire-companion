@@ -329,8 +329,28 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   const nextPlayerId = currentIndex >= 0 && currentIndex < players.length - 1 ? players[currentIndex + 1].id : null;
 
   const filteredModalRoles = selectionRoles
-    .filter(r => r.name.toLowerCase().includes(modalRoleSearch.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .filter(r =>
+      r.name.toLowerCase().includes(modalRoleSearch.toLowerCase()) ||
+      r.team.toLowerCase().includes(modalRoleSearch.toLowerCase())
+    )
+    .sort((a, b) => {
+      const isCurrentA = a.id === modalPlayer?.roleId;
+      const isCurrentB = b.id === modalPlayer?.roleId;
+      if (isCurrentA && !isCurrentB) return -1;
+      if (!isCurrentA && isCurrentB) return 1;
+
+      const TEAM_ORDER: Record<string, number> = {
+        townsfolk: 1,
+        outsider: 2,
+        minion: 3,
+        demon: 4,
+        traveler: 5
+      };
+      const orderA = TEAM_ORDER[a.team] || 99;
+      const orderB = TEAM_ORDER[b.team] || 99;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
 
   return (
     <div className={cn(
