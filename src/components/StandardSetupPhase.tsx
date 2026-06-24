@@ -80,6 +80,15 @@ export default function StandardSetupPhase({
   validationSummary,
   isLightModeActive,
 }: StandardSetupPhaseProps) {
+  const getScriptStats = () => {
+    if (!customScriptRoles) return '';
+    const tf = customScriptRoles.filter(r => r.team === 'townsfolk').length;
+    const o = customScriptRoles.filter(r => r.team === 'outsider').length;
+    const m = customScriptRoles.filter(r => r.team === 'minion').length;
+    const d = customScriptRoles.filter(r => r.team === 'demon').length;
+    return `${tf} TF / ${o} O / ${m} M / ${d} D`;
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[5fr_3fr] md:grid-rows-[auto_1fr] md:items-start animate-fadeIn">
       {/* Section A: Script & Randomization */}
@@ -102,7 +111,7 @@ export default function StandardSetupPhase({
               "w-full border py-3.5 px-4 rounded-lg transition-all flex flex-col items-center justify-center gap-1 group text-center cursor-pointer",
               isLightModeActive
                 ? "bg-gray-100/80 border-gray-300 hover:border-clocktower-blood/60 hover:bg-gray-150"
-                : "bg-gray-950 border-gray-800/80 hover:border-clocktower-blood"
+                : "bg-gray-955 border-gray-800 hover:border-clocktower-blood"
             )}
             title="Click to upload custom script JSON"
           >
@@ -116,7 +125,7 @@ export default function StandardSetupPhase({
             </span>
             <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
               <Upload size={12} />
-              {customScriptRoles ? `Custom Script (${customScriptRoles.length} roles) — Click to change` : "Default Script — Click to upload .json"}
+              {customScriptRoles ? `${getScriptStats()} — Click to change` : "Default Script — Click to upload .json"}
             </span>
           </button>
           {customScriptRoles && (

@@ -61,6 +61,15 @@ export default function PlayerTrackerSetupPhase({
   isSynced = false,
   isLightModeActive = false,
 }: PlayerTrackerSetupPhaseProps) {
+  const getScriptStats = () => {
+    if (!customScriptRoles) return '';
+    const tf = customScriptRoles.filter(r => r.team === 'townsfolk').length;
+    const o = customScriptRoles.filter(r => r.team === 'outsider').length;
+    const m = customScriptRoles.filter(r => r.team === 'minion').length;
+    const d = customScriptRoles.filter(r => r.team === 'demon').length;
+    return `${tf} TF / ${o} O / ${m} M / ${d} D`;
+  };
+
   return (
     <div className="grid grid-cols-1 gap-6 md:grid-cols-[5fr_3fr] md:grid-rows-[auto_1fr] md:items-start animate-fadeIn">
       {/* Section A: Script Upload */}
@@ -88,7 +97,7 @@ export default function PlayerTrackerSetupPhase({
                 {customScriptRoles ? "📜" : "🌐"} {scriptName}
               </span>
               <span className="text-[10px] text-gray-500 font-medium">
-                Active Script (Synced from Storyteller)
+                {customScriptRoles ? `${getScriptStats()} — Synced from Storyteller` : "Active Script (Synced from Storyteller)"}
               </span>
             </div>
           ) : (
@@ -114,7 +123,7 @@ export default function PlayerTrackerSetupPhase({
                 </span>
                 <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
                   <Upload size={12} />
-                  {customScriptRoles ? `Custom Script (${customScriptRoles.length} roles) — Click to change` : "Upload Custom Script (.json)"}
+                  {customScriptRoles ? `${getScriptStats()} — Click to change` : "Upload Custom Script (.json)"}
                 </span>
               </button>
 
