@@ -161,7 +161,7 @@ export default function WhaleBucketGamePhase({
 
       {/* Column 2: Ledger & Controls */}
       <div className="space-y-6 md:pt-10 landscape:pt-10">
-        {/* Active Script Display */}
+        {/* All Roles Display */}
         <button
           type="button"
           onClick={() => setIsScriptModalOpen(true)}
@@ -176,7 +176,7 @@ export default function WhaleBucketGamePhase({
             "flex items-center gap-1.5 text-base font-extrabold transition-colors",
             isLightModeActive ? "text-gray-900" : "text-white"
           )}>
-            📜 Active Script
+            📜 All Roles
           </span>
           <span className="text-[10px] text-gray-500 font-medium">
             {getScriptStats()}
@@ -382,7 +382,7 @@ export default function WhaleBucketGamePhase({
                   isLightModeActive ? "text-clocktower-blood" : "text-white"
                 )}>
                   <Scroll size={20} className={isLightModeActive ? "text-clocktower-blood" : "text-clocktower-townsfolk"} />
-                  Active Script
+                  All Roles
                 </h3>
                 <p className="text-xs text-gray-500 font-medium mt-1">
                   {getScriptStats()}

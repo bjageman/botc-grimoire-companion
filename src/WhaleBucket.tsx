@@ -763,7 +763,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
                 alert(`Copied link to clipboard: ${joinUrl}`);
               }}
               className={cn(
-                "cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none flex items-center gap-1",
+                "cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none flex items-baseline gap-1",
                 isLightModeActive 
                   ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200" 
                   : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"

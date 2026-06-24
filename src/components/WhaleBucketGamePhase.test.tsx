@@ -65,8 +65,8 @@ describe('WhaleBucketGamePhase - Script Modal Integration', () => {
   it('renders active script button with correct counts', () => {
     render(<WhaleBucketGamePhase {...defaultProps} />);
 
-    // Should display the button with "Active Script"
-    const scriptButton = screen.getByText(/Active Script/i).closest('button');
+    // Should display the button with "All Roles"
+    const scriptButton = screen.getByText(/All Roles/i).closest('button');
     expect(scriptButton).toBeInTheDocument();
 
     // Since washerwoman (TF) and poisoner (Minion) are active:
@@ -77,11 +77,11 @@ describe('WhaleBucketGamePhase - Script Modal Integration', () => {
   it('opens modal on script button click and displays active characters sorted by team', () => {
     render(<WhaleBucketGamePhase {...defaultProps} />);
 
-    const scriptButton = screen.getByText(/Active Script/i).closest('button');
+    const scriptButton = screen.getByText(/All Roles/i).closest('button');
     fireEvent.click(scriptButton!);
 
     // Modal should be open
-    expect(screen.getByRole('heading', { name: /Active Script/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /All Roles/i })).toBeInTheDocument();
 
     const modalContainer = screen.getByPlaceholderText('Search character by name or type...').closest('.max-w-2xl') as HTMLElement;
     const modal = within(modalContainer);
@@ -104,7 +104,7 @@ describe('WhaleBucketGamePhase - Script Modal Integration', () => {
   it('opens character details modal when character is clicked', () => {
     render(<WhaleBucketGamePhase {...defaultProps} />);
 
-    const scriptButton = screen.getByText(/Active Script/i).closest('button');
+    const scriptButton = screen.getByText(/All Roles/i).closest('button');
     fireEvent.click(scriptButton!);
 
     const modalContainer = screen.getByPlaceholderText('Search character by name or type...').closest('.max-w-2xl') as HTMLElement;
@@ -125,6 +125,6 @@ describe('WhaleBucketGamePhase - Script Modal Integration', () => {
 
     // Detail overlay should be closed, but list modal should still be open
     expect(screen.queryByText('You start knowing that 1 of 2 players is a particular Townsfolk.')).toBeNull();
-    expect(screen.getByRole('heading', { name: /Active Script/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /All Roles/i })).toBeInTheDocument();
   });
 });
