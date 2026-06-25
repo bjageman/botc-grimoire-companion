@@ -87,7 +87,6 @@ export default function ReminderPickerModal({
             placeholder="Search reminders..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            autoFocus
             className={cn(
               'w-full rounded-md px-3 py-1.5 text-xs outline-none border',
               isLightModeActive
