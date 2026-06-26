@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useScrollLock } from './hooks/useScrollLock';
 import { useGameSocket } from './hooks/useGameSocket';
 import rolesData from './official_roles.json';
 import { cn } from './utils/cn';
@@ -58,6 +59,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
   });
 
   const [activePrefSelect, setActivePrefSelect] = useState<{ team: 'townsfolk' | 'outsider' | 'minion' | 'demon' } | null>(null);
+  useScrollLock(!!activePrefSelect);
   const [prefSearchTerm, setPrefSearchTerm] = useState('');
   const [excludedRoleIds, setExcludedRoleIds] = useState<string[]>([]);
   const [scriptName, setScriptName] = useState("All Roles");
@@ -287,6 +289,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     });
   };
 
+  const isMobile = useMemo(() => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent), []);
   const isLight = theme === 'light';
 
   return (
@@ -484,7 +487,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
                 <Search size={14} className="text-gray-500 mr-2 flex-shrink-0" />
                 <input
                   type="text"
-                  autoFocus
+                  autoFocus={!isMobile}
                   placeholder="Search character name..."
                   className="bg-transparent flex-1 outline-none text-xs placeholder-gray-500 h-8 w-full"
                   value={prefSearchTerm}
@@ -493,7 +496,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
               </div>
 
               <div className={cn(
-                "overflow-y-auto flex-1 border rounded bg-gray-955/20 divide-y pr-1",
+                "overflow-y-auto overscroll-contain flex-1 border rounded bg-gray-955/20 divide-y pr-1",
                 isLight ? "border-gray-200 divide-gray-150" : "border-gray-855 divide-gray-800/60"
               )}>
                 {(rolesData as Role[])

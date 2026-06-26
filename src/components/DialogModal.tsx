@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useScrollLock } from '../hooks/useScrollLock';
 import { cn } from '../utils/cn';
 
 interface DialogModalProps {
@@ -24,6 +25,8 @@ export default function DialogModal({
   onCancel,
   isLightModeActive,
 }: DialogModalProps) {
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: KeyboardEvent) => {
