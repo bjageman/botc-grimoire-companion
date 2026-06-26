@@ -238,7 +238,7 @@ export default function GamePhase({
                 return (
                   <div key={slot} className="relative">
                     {bluffPickerSlot === slot ? (
-                      <div className="rounded border p-2 space-y-1.5 bg-gray-950 border-gray-700">
+                      <div className="rounded border p-2 space-y-1.5 bg-gray-955 border-gray-700">
                         <div className="flex items-center gap-1.5">
                           <Search size={11} className="text-gray-400 shrink-0" />
                           <input
@@ -353,7 +353,7 @@ export default function GamePhase({
                     'flex-1 rounded px-2 py-1.5 text-xs focus:outline-none border transition-colors',
                     isLightModeActive
                       ? 'bg-white border-gray-300 text-clocktower-night focus:border-clocktower-blood'
-                      : 'bg-gray-950 border-gray-800 text-gray-200 focus:border-clocktower-blood'
+                      : 'bg-gray-955 border-gray-800 text-gray-200 focus:border-clocktower-blood'
                   )}
                 >
                   {(rolesData as Role[]).filter(r => r.team === 'traveler').map(r => (
@@ -498,7 +498,7 @@ export default function GamePhase({
       {/* Demon Bluffs full-screen overlay — always dark */}
       {isBluffOverlayOpen && (
         <div
-          className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-8 p-8 cursor-pointer overscroll-none touch-none"
+          className="fixed inset-0 z-50 bg-gray-955 flex flex-col items-center justify-center gap-8 p-8 cursor-pointer overscroll-none touch-none"
           style={{ minHeight: '100dvh' }}
           onClick={() => setIsBluffOverlayOpen(false)}
         >
