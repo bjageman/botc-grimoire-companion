@@ -271,7 +271,7 @@ export default function GamePhase({
                               )}
                             >
                               <span className="font-medium">{r.name}</span>
-                              <span className={cn('ml-1 text-[10px]', r.team === 'outsider' ? 'text-clocktower-outsider' : 'text-clocktower-townsfolk')}>
+                              <span className={cn('ml-1 text-[10px] font-semibold', r.team === 'outsider' ? 'text-emerald-500' : 'text-blue-500')}>
                                 {r.team === 'outsider' ? 'Outsider' : 'Townsfolk'}
                               </span>
                             </button>
@@ -301,7 +301,7 @@ export default function GamePhase({
                             <span className="flex items-center gap-1.5">
                               <img src={`/icons/${role.id}.svg`} alt={role.name} className="w-5 h-5 object-contain shrink-0" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                               <span>{role.name}</span>
-                              <span className={cn('text-[10px]', role.team === 'outsider' ? 'text-clocktower-outsider' : 'text-clocktower-townsfolk')}>
+                              <span className={cn('text-[10px] font-semibold', role.team === 'outsider' ? 'text-emerald-500' : 'text-blue-500')}>
                                 {role.team === 'outsider' ? 'Outsider' : 'Townsfolk'}
                               </span>
                             </span>
@@ -506,26 +506,27 @@ export default function GamePhase({
         isLightModeActive={isLightModeActive}
       />
 
-      {/* Demon Bluffs full-screen overlay */}
+      {/* Demon Bluffs full-screen overlay — always dark */}
       {isBluffOverlayOpen && (
         <div
-          className="fixed inset-0 z-50 bg-clocktower-night flex flex-col items-center justify-center gap-8 p-8 cursor-pointer"
+          className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-8 p-8 cursor-pointer"
           onClick={() => setIsBluffOverlayOpen(false)}
         >
-          <p className="text-gray-500 text-xs uppercase tracking-widest font-bold select-none">Demon Bluffs — tap to close</p>
-          <div className="flex flex-col gap-6 w-full max-w-sm">
+          <p className="text-gray-400 text-xs uppercase tracking-widest font-bold select-none">Demon Bluffs — tap to close</p>
+          <div className="flex flex-col gap-5 w-full max-w-sm">
             {[0, 1, 2].map(slot => {
               const roleId = demonBluffs[slot] || '';
               const role = roleId ? (rolesData as Role[]).find(r => r.id === roleId) : null;
+              const isOutsider = role?.team === 'outsider';
               return (
                 <div
                   key={slot}
                   className={cn(
-                    'rounded-xl border-2 px-6 py-5 flex items-center gap-4',
+                    'rounded-xl border-2 px-5 py-4 flex items-center gap-4',
                     role
-                      ? role.team === 'outsider'
-                        ? 'border-clocktower-outsider/60 bg-clocktower-outsider/10'
-                        : 'border-clocktower-townsfolk/60 bg-clocktower-townsfolk/10'
+                      ? isOutsider
+                        ? 'border-emerald-500/50 bg-emerald-950/60'
+                        : 'border-blue-500/50 bg-blue-950/60'
                       : 'border-gray-800 bg-gray-900/50'
                   )}
                 >
@@ -537,13 +538,13 @@ export default function GamePhase({
                         className="w-16 h-16 shrink-0 object-contain"
                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
                       />
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <p className={cn(
                           'text-2xl font-extrabold',
-                          role.team === 'outsider' ? 'text-clocktower-outsider' : 'text-clocktower-townsfolk'
+                          isOutsider ? 'text-emerald-300' : 'text-blue-300'
                         )}>{role.name}</p>
                         {officialRoleAbility(role.id) && (
-                          <p className="text-sm text-gray-400 mt-1 leading-snug">{officialRoleAbility(role.id)}</p>
+                          <p className="text-sm text-gray-300 mt-1 leading-snug">{officialRoleAbility(role.id)}</p>
                         )}
                       </div>
                     </>
