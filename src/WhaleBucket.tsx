@@ -192,6 +192,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       name: string;
       checkOnly?: boolean;
       preferences?: PlayerPreferences;
+      pronouns?: string;
     };
     if (payload.type === 'player_join' && payload.name && payload.id) {
       const isExistingPlayer = players.some(
@@ -219,7 +220,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               if (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id) {
                 return {
                   ...p,
-                  preferences: payload.preferences || p.preferences
+                  preferences: payload.preferences || p.preferences,
+                  pronouns: payload.pronouns ?? p.pronouns,
                 };
               }
               return p;
@@ -235,6 +237,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               isTheDrunk: false,
               isTheMarionette: false,
               isTheLilMonsta: false,
+              pronouns: payload.pronouns,
               preferences: payload.preferences || {
                 townsfolk: [],
                 outsider: [],
@@ -253,7 +256,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
             if (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id) {
               return {
                 ...p,
-                preferences: payload.preferences || p.preferences
+                preferences: payload.preferences || p.preferences,
+                pronouns: payload.pronouns ?? p.pronouns,
               };
             }
             return p;
@@ -269,6 +273,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               isTheDrunk: false,
               isTheMarionette: false,
               isTheLilMonsta: false,
+              pronouns: payload.pronouns,
               preferences: payload.preferences || {
                 townsfolk: [],
                 outsider: [],

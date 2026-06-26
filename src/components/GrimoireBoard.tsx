@@ -708,6 +708,15 @@ export default function GrimoireBoard({
                     {p.name}
                   </span>
 
+                  {p.pronouns && (
+                    <span
+                      style={{ fontSize: '1.7cqw' }}
+                      className="text-[#555] font-medium leading-none pointer-events-none select-none z-20 relative"
+                    >
+                      {p.pronouns}
+                    </span>
+                  )}
+
                   {p.isTheDrunk && (
                     <span
                       style={{ fontSize: '1.9cqw', padding: '0.3cqw 1cqw', borderRadius: '0.4cqw', borderWidth: '0.15cqw' }}

@@ -20,6 +20,7 @@ export interface Player {
   roleIds?: string[];
   assignedFromPref?: boolean;
   isDead: boolean;
+  pronouns?: string;
   isEvil?: boolean;
   isTheDrunk?: boolean;
   isTheMarionette?: boolean;

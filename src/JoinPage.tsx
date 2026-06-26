@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useGameSocket } from './hooks/useGameSocket';
 import rolesData from './official_roles.json';
 import { cn } from './utils/cn';
-import { ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, Settings, CheckCircle2, RotateCcw, Plus, Search, Moon } from 'lucide-react';
+import { ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, Settings, CheckCircle2, RotateCcw, Plus, Search, Moon, Scroll } from 'lucide-react';
 import type { Role, Player } from './types';
+import ScriptCharactersModal from './components/ScriptCharactersModal';
 import GrimoireBoard from './components/GrimoireBoard';
 import PageLayout from './components/PageLayout';
 import DialogModal from './components/DialogModal';
@@ -62,6 +63,13 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
   const [scriptName, setScriptName] = useState("All Roles (Default)");
   const { dialogProps, showAlert } = useDialog();
   const [customScriptRoles, setCustomScriptRoles] = useState<Role[] | null>(null);
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+  const [pronouns, setPronouns] = useState(() => sessionStorage.getItem('joined-pronouns') || '');
+
+  const sortedRoles = useMemo(() => {
+    const baseRoles = customScriptRoles || (rolesData as Role[]);
+    return [...baseRoles].sort((a, b) => a.name.localeCompare(b.name));
+  }, [customScriptRoles]);
 
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const joinRetryIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -191,11 +199,12 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         sendMessage({
           type: 'player_join',
           name: name,
-          id: playerId
+          id: playerId,
+          pronouns: pronouns || undefined,
         });
       }
     }
-  }, [isConnected, code, name, state, playerId, sendMessage]);
+  }, [isConnected, code, name, state, playerId, pronouns, sendMessage]);
 
   const handleJoinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,11 +245,11 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
   };
 
   const handlePrefsSubmit = () => {
-    // Send joined message with preferences
     sendMessage({
       type: 'player_join',
       name: name,
       id: playerId,
+      pronouns: pronouns || undefined,
       preferences: {
         townsfolk: prefs.townsfolk,
         outsider: prefs.outsider,
@@ -258,6 +267,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
   const handleLeaveGame = () => {
     sessionStorage.removeItem('joined-code');
     sessionStorage.removeItem('joined-name');
+    sessionStorage.removeItem('joined-pronouns');
     setCode('');
     setName('');
     setState('join');
@@ -579,6 +589,48 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
               <p className="text-sm font-semibold text-gray-500">Registered as <span className="text-clocktower-blood">{name}</span></p>
             </div>
 
+            <div className="space-y-2">
+              <p className={cn("text-[10px] uppercase font-bold tracking-wider text-center", isLight ? "text-gray-400" : "text-gray-500")}>Pronouns (optional)</p>
+              <div className="flex gap-2 justify-center">
+                {['He/Him', 'She/Her', 'They/Them'].map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => {
+                      const next = pronouns === p ? '' : p;
+                      setPronouns(next);
+                      sessionStorage.setItem('joined-pronouns', next);
+                      sendMessage({ type: 'player_join', name, id: playerId, pronouns: next || undefined });
+                    }}
+                    className={cn(
+                      "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+                      pronouns === p
+                        ? "bg-clocktower-blood text-white border-clocktower-blood"
+                        : isLight
+                          ? "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                          : "bg-gray-900 border-gray-700 text-gray-400 hover:border-gray-500"
+                    )}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              id="game-script-button"
+              type="button"
+              onClick={() => setIsScriptModalOpen(true)}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 py-3 rounded-lg text-sm font-bold transition-all shadow-sm hover:opacity-90 active:scale-[0.98]",
+                isLight
+                  ? "bg-clocktower-night text-white hover:bg-gray-800"
+                  : "bg-gray-800 border border-gray-700 text-white hover:bg-gray-700"
+              )}
+            >
+              <Scroll size={15} />
+              <span>View Script: {scriptName}</span>
+            </button>
             <div className={cn("p-4 rounded-xl border text-xs leading-relaxed", isLight ? "bg-gray-50 border-gray-200" : "bg-gray-950 border-gray-800")}>
               {gameType === 'whale-bucket' ? (
                 <p>Your character preferences have been successfully sent to the Storyteller. Wait until everyone has joined and the Storyteller starts the game.</p>
@@ -796,6 +848,14 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
       </div>
     </PageLayout>
     <DialogModal {...dialogProps} isLightModeActive={isLight} />
+
+    <ScriptCharactersModal
+      isOpen={isScriptModalOpen}
+      onClose={() => setIsScriptModalOpen(false)}
+      scriptName={scriptName}
+      roles={sortedRoles}
+      isLightModeActive={isLight}
+    />
     </>
   );
 }

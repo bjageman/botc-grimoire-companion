@@ -173,9 +173,11 @@ export default function PlayerDetailsModal({
                 )}
                 placeholder="Player Name"
               />
-              <p className={cn('text-[11px] font-medium mt-0', isLightModeActive ? 'text-gray-500' : 'text-gray-400')}>
-                Player {currentIndex + 1} of {players.length}
-              </p>
+              {p.pronouns && (
+                <p className={cn('text-sm font-medium mt-0', isLightModeActive ? 'text-gray-500' : 'text-gray-400')}>
+                  {p.pronouns}
+                </p>
+              )}
               {!isSynced && onUpdateNotes && (
                 <input
                   type="text"
