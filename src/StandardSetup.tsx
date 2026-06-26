@@ -720,7 +720,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
       onBack={phase !== 'setup' ? () => setPhase('setup') : undefined}
       titleContent={
         <div className="flex items-center justify-center gap-2">
-          <h1 className="text-xl font-bold text-clocktower-blood tracking-wide">
+          <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
             Standard
           </h1>
           <div

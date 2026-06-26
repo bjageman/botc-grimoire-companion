@@ -751,8 +751,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       onBack={phase !== 'setup' ? () => { if (phase === 'game') setPhase('draft'); else setPhase('setup'); } : undefined}
       titleContent={
         <div className="flex items-center justify-center gap-2">
-          <h1 className="text-xl font-bold text-clocktower-blood tracking-wide">
-            Whale Bucket
+          <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
+            Whale Buffet
           </h1>
           <div
           onClick={() => setShowRoomCodeModal(true)}

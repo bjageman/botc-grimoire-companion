@@ -41,7 +41,7 @@ export default function PreferenceSelectionModal({
       <div id="preference-selection-modal" className="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-lg p-4 space-y-4 max-h-[85vh] flex flex-col shadow-2xl">
         <div className="flex justify-between items-center">
           <div>
-            <h3 className="font-bold text-base text-white">
+            <h3 className="font-display font-bold text-sm text-white tracking-wider uppercase">
               Select {activePrefModal.team === 'townsfolk' ? 'Townsfolk' : activePrefModal.team === 'outsider' ? 'Outsiders' : activePrefModal.team === 'minion' ? 'Minions' : activePrefModal.team === 'demon' ? 'Demons' : 'Travelers'}
             </h3>
             <p className="text-xs text-gray-550">

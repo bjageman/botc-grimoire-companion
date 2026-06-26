@@ -69,8 +69,8 @@ export default function ManualOverrideModal({
     <div className="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4 backdrop-blur-xs">
       <div id="manual-override-modal" className="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-lg p-4 space-y-3 max-h-[80vh] flex flex-col shadow-2xl">
         <div className="flex justify-between items-center">
-          <h3 className="font-bold text-sm text-gray-300">
-            Change Role for {draftPlayer?.name}
+          <h3 className="font-display font-bold text-sm text-gray-300 tracking-wider uppercase">
+            Change Role
           </h3>
           <button onClick={() => { setActiveDraftPlayerId(null); setSearchTerm(''); }} className="text-xs text-gray-500 underline">
             Close

@@ -35,10 +35,10 @@ export default function WhaleBucketDraftPhase({
     <div className="space-y-5">
       <div className="flex justify-between items-center">
         <h2 className={cn(
-          "text-lg font-semibold",
+          "font-display text-base font-bold tracking-wider uppercase",
           isLightModeActive ? "text-gray-800" : "text-gray-300"
         )}>
-          2. Character Draft Assignment
+          2. Character Draft
         </h2>
         <button
           onClick={runAssignment}
@@ -72,7 +72,7 @@ export default function WhaleBucketDraftPhase({
               grimoireElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
           }}
-          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-bold transition-all disabled:opacity-40 shadow-lg shadow-black/40"
+          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 shadow-lg shadow-black/40"
         >
           Open Grimoire
         </button>
@@ -375,7 +375,7 @@ export default function WhaleBucketDraftPhase({
               grimoireElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
           }}
-          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-bold transition-all disabled:opacity-40 shadow-lg shadow-black/40"
+          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 shadow-lg shadow-black/40"
         >
           Open Grimoire
         </button>

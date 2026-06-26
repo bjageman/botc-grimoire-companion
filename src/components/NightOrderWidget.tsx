@@ -181,7 +181,7 @@ export default function NightOrderWidget({
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-dashed border-gray-300 dark:border-gray-800">
         <div>
-          <h3 className="font-serif text-lg font-bold tracking-wide flex items-center gap-2">
+          <h3 className="font-display text-base font-bold tracking-wider uppercase flex items-center gap-2">
             <Moon className="w-5 h-5 text-amber-500" />
             Night Order Guide
           </h3>

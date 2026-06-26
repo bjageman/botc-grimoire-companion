@@ -59,8 +59,8 @@ export default function StandardRoleSelectionModal({
     <div className="fixed inset-0 bg-black/60 z-40 flex items-center justify-center p-4 backdrop-blur-sm">
       <div id="standard-role-selection-modal" className="bg-gray-900 border border-gray-800 w-full max-w-sm rounded-lg p-4 space-y-3 max-h-[80vh] flex flex-col shadow-2xl">
         <div className="flex justify-between items-center">
-          <h3 className="font-bold text-sm text-black">
-            Select Role for {player?.name}
+          <h3 className="font-display font-bold text-sm text-black tracking-wider uppercase">
+            Select Role
           </h3>
           <button id="close-role-modal-button" onClick={() => { setActivePlayerId(null); setSearchTerm(''); }} className="text-xs text-gray-500 underline">
             Close

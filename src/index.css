@@ -26,6 +26,11 @@
 body {
   margin: 0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-image: radial-gradient(ellipse 90% 45% at 50% 0%, rgba(139, 0, 0, 0.13) 0%, transparent 68%);
+}
+
+:root.theme-light body {
+  background-image: radial-gradient(ellipse 90% 45% at 50% 0%, rgba(139, 0, 0, 0.07) 0%, transparent 68%);
 }
 
 /* ==========================================================================

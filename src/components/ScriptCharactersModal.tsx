@@ -77,7 +77,7 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
         >
           <div className="flex justify-between items-start gap-4 mb-4">
             <div>
-              <h3 className={cn("font-bold text-2xl leading-tight flex items-center gap-2", isLightModeActive ? "text-clocktower-blood" : "text-white")}>
+              <h3 className={cn("font-display font-bold text-xl leading-tight flex items-center gap-2 tracking-wider", isLightModeActive ? "text-clocktower-blood" : "text-white")}>
                 <Scroll size={20} className={isLightModeActive ? "text-clocktower-blood" : "text-clocktower-townsfolk"} />
                 {scriptName}
               </h3>
