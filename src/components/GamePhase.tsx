@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { GripVertical, Search, X } from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { Player, Role, PlacedReminder } from '../types';
@@ -495,11 +496,11 @@ export default function GamePhase({
         isLightModeActive={isLightModeActive}
       />
 
-      {/* Demon Bluffs full-screen overlay — always dark */}
-      {isBluffOverlayOpen && (
+      {/* Demon Bluffs full-screen overlay — portalled to body to escape CSS containment */}
+      {isBluffOverlayOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-gray-955 flex flex-col items-center justify-center gap-8 p-8 cursor-pointer overscroll-none touch-none"
-          style={{ minHeight: '100dvh' }}
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8 p-8 cursor-pointer overscroll-none touch-none"
+          style={{ backgroundColor: '#020610', minHeight: '100dvh' }}
           onClick={() => setIsBluffOverlayOpen(false)}
         >
           <p className="text-gray-400 text-xs uppercase tracking-widest font-bold select-none">Demon Bluffs — tap to close</p>
@@ -547,7 +548,8 @@ export default function GamePhase({
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
