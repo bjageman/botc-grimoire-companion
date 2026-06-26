@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 import rolesData from './roles.json';
 import { cn } from './utils/cn';
 import type { Player, Role } from './types';
@@ -223,6 +223,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
       type: string;
       id: string;
       name: string;
+      pronouns?: string;
       checkOnly?: boolean;
     };
     if (payload.type === 'player_join' && payload.name && payload.id) {
@@ -248,7 +249,13 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         setRemotePlayerIds(prev => new Set([...prev, payload.id]));
         setPlayers(prev => {
           const exists = prev.some(p => p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id);
-          if (exists) return prev;
+          if (exists) {
+            return prev.map(p =>
+              (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id)
+                ? { ...p, pronouns: payload.pronouns ?? p.pronouns }
+                : p
+            );
+          }
           return [
             ...prev,
             {
@@ -256,23 +263,29 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
               name: payload.name,
               isDead: false,
               roleId: '',
+              pronouns: payload.pronouns,
             }
           ];
         });
       }
 
       if (phase === 'setup') {
-        const updatedPlayers = isExistingPlayer ? players : (
-          payload.checkOnly ? players : [
-            ...players,
-            {
-              id: payload.id,
-              name: payload.name,
-              isDead: false,
-              roleId: '',
-            }
-          ]
-        );
+        const updatedPlayers = isExistingPlayer
+          ? players.map(p =>
+              (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id)
+                ? { ...p, pronouns: payload.pronouns ?? p.pronouns }
+                : p
+            )
+          : (payload.checkOnly ? players : [
+              ...players,
+              {
+                id: payload.id,
+                name: payload.name,
+                isDead: false,
+                roleId: '',
+                pronouns: payload.pronouns,
+              }
+            ]);
         broadcastSetupUpdate(updatedPlayers);
       }
 
@@ -657,7 +670,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           className={cn("p-2 transition-colors", isLightModeActive ? "text-gray-600 hover:text-gray-900" : "text-gray-500 hover:text-white")}
           title="Reset game"
         >
-          <RefreshCcw size={20} />
+          <Undo2 size={20} />
         </button>
       }
       headerExtra={
@@ -770,7 +783,6 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         <PlayerDetailsModal
           player={modalPlayer}
           players={players}
-          currentIndex={currentIndex}
           roleObj={modalRoleObj}
           filteredModalRoles={filteredModalRoles}
           isSearchingRole={isSearchingRole}

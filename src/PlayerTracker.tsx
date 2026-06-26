@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 import rolesData from './roles.json';
 import { cn } from './utils/cn';
 import type { Player, Role } from './types';
@@ -125,6 +125,14 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   const isSynced = !!gameCode;
   const { dialogProps, showAlert, showConfirm } = useDialog();
 
+  const [gameNotes, setGameNotes] = useState<string>(() => {
+    const saved = localStorage.getItem('player-tracker-botc-game');
+    if (saved) {
+      try { return JSON.parse(saved).gameNotes || ''; } catch { return ''; }
+    }
+    return '';
+  });
+
   const handleIncomingMessage = (data: unknown) => {
     const payload = data as {
       type: string;
@@ -211,6 +219,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       localStorage.removeItem('player-tracker-botc-game');
       sessionStorage.removeItem('joined-code');
       sessionStorage.removeItem('joined-name');
+      setGameNotes('');
       setGameCode(null);
       window.location.hash = '';
     }, 'Reset Tracker');
@@ -254,9 +263,10 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       dayNumber,
       customScriptRoles,
       scriptName,
+      gameNotes,
       code: gameCode || undefined,
     }));
-  }, [players, phase, timeOfDay, dayNumber, customScriptRoles, scriptName, gameCode]);
+  }, [players, phase, timeOfDay, dayNumber, customScriptRoles, scriptName, gameNotes, gameCode]);
 
   const toggleTimeOfDay = () => {
     if (timeOfDay === 'night') {
@@ -449,7 +459,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       toggleTheme={toggleTheme}
       backHref={phase === 'setup' ? "#/" : undefined}
       onBack={phase !== 'setup' ? () => setPhase('setup') : undefined}
-      title="Character Tracker"
+      title="Game Notes"
       extraControls={
         <button
           id="reset-game-button"
@@ -457,7 +467,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           className={cn("p-2 transition-colors", isLightModeActive ? "text-gray-600 hover:text-gray-900" : "text-gray-500 hover:text-white")}
           title="Reset game"
         >
-          <RefreshCcw size={20} />
+          <Undo2 size={20} />
         </button>
       }
       contentClassName="px-4 pt-6 pb-4"
@@ -529,12 +539,29 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
         />
       )}
 
+      {phase === 'game' && (
+        <div className="mt-2 space-y-1.5">
+          <p className={cn('text-[10px] uppercase font-bold tracking-wider', isLightModeActive ? 'text-gray-400' : 'text-gray-500')}>Notes</p>
+          <textarea
+            value={gameNotes}
+            onChange={(e) => setGameNotes(e.target.value)}
+            placeholder="Write anything here — deductions, suspicions, reminders..."
+            rows={5}
+            className={cn(
+              'w-full rounded-lg border px-3 py-2 text-sm resize-none focus:outline-none transition-colors leading-relaxed',
+              isLightModeActive
+                ? 'bg-white border-gray-200 text-gray-800 placeholder-gray-400 focus:border-gray-400'
+                : 'bg-gray-900/60 border-gray-800 text-gray-200 placeholder-gray-600 focus:border-gray-600'
+            )}
+          />
+        </div>
+      )}
+
       {/* Player Details Modal */}
       {selectedPlayerId && modalPlayer && (
         <PlayerDetailsModal
           player={modalPlayer}
           players={players}
-          currentIndex={currentIndex}
           roleObj={modalRoleObj}
           filteredModalRoles={filteredModalRoles}
           isSearchingRole={isSearchingRole}

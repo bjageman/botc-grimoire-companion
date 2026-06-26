@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { RefreshCcw } from 'lucide-react';
+import { Undo2 } from 'lucide-react';
 import rolesData from './official_roles.json';
 import { cn } from './utils/cn';
 import type { Role, Player as BasePlayer, PlayerPreferences } from './types';
@@ -192,6 +192,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       name: string;
       checkOnly?: boolean;
       preferences?: PlayerPreferences;
+      pronouns?: string;
     };
     if (payload.type === 'player_join' && payload.name && payload.id) {
       const isExistingPlayer = players.some(
@@ -219,7 +220,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               if (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id) {
                 return {
                   ...p,
-                  preferences: payload.preferences || p.preferences
+                  preferences: payload.preferences || p.preferences,
+                  pronouns: payload.pronouns ?? p.pronouns,
                 };
               }
               return p;
@@ -235,6 +237,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               isTheDrunk: false,
               isTheMarionette: false,
               isTheLilMonsta: false,
+              pronouns: payload.pronouns,
               preferences: payload.preferences || {
                 townsfolk: [],
                 outsider: [],
@@ -253,7 +256,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
             if (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id) {
               return {
                 ...p,
-                preferences: payload.preferences || p.preferences
+                preferences: payload.preferences || p.preferences,
+                pronouns: payload.pronouns ?? p.pronouns,
               };
             }
             return p;
@@ -269,6 +273,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               isTheDrunk: false,
               isTheMarionette: false,
               isTheLilMonsta: false,
+              pronouns: payload.pronouns,
               preferences: payload.preferences || {
                 townsfolk: [],
                 outsider: [],
@@ -730,7 +735,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           className={cn("p-2 transition-colors", isLightModeActive ? "text-gray-600 hover:text-gray-900" : "text-gray-500 hover:text-white")}
           title="Reset game"
         >
-          <RefreshCcw size={20} />
+          <Undo2 size={20} />
         </button>
       }
       headerExtra={
@@ -864,7 +869,6 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
         <PlayerDetailsModal
           player={modalPlayer}
           players={players}
-          currentIndex={currentIndex}
           roleObj={modalRoleObj}
           filteredModalRoles={filteredModalRoles}
           isSearchingRole={isSearchingRole}

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Shuffle, Upload, CheckCircle, AlertTriangle } from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { Player, Role } from '../types';
 import { getScriptStats } from '../utils/scriptUtils';
 import rolesData from '../roles.json';
+import ScriptCharactersModal from './ScriptCharactersModal';
 import { getDistribution } from '../constants';
 import StandardSetupPlayerRow from './StandardSetupPlayerRow';
 import type { ValidationSummary } from '../utils/whaleBucketValidation';
@@ -88,6 +89,12 @@ export default function StandardSetupPhase({
   onGrimoireConfirmed,
 }: StandardSetupPhaseProps) {
   const [showGrimoireWarning, setShowGrimoireWarning] = useState(false);
+  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
+
+  const sortedRoles = useMemo(() => {
+    const baseRoles = customScriptRoles || (rolesData as Role[]);
+    return [...baseRoles].sort((a, b) => a.name.localeCompare(b.name));
+  }, [customScriptRoles]);
 
   const openGrimoire = () => {
     setPhase('game');
@@ -165,6 +172,19 @@ export default function StandardSetupPhase({
               Reset to Default
             </button>
           )}
+          <button
+            id="game-script-button"
+            type="button"
+            onClick={() => setIsScriptModalOpen(true)}
+            className={cn(
+              "w-full text-center bg-transparent border py-1.5 rounded text-xs font-semibold transition-all",
+              isLightModeActive
+                ? "hover:bg-gray-200/50 border-gray-300 text-gray-600 hover:text-gray-900"
+                : "hover:bg-gray-800 border-gray-800 text-gray-500 hover:text-gray-400"
+            )}
+          >
+            View Characters
+          </button>
             
             <div className="border-t border-gray-800/60 my-1" />
             
@@ -446,6 +466,14 @@ export default function StandardSetupPhase({
         </div>
       </div>
     )}
+    <ScriptCharactersModal
+      isOpen={isScriptModalOpen}
+      onClose={() => setIsScriptModalOpen(false)}
+      scriptName={scriptName}
+      roles={sortedRoles}
+      scriptStats={customScriptRoles ? getScriptStats(customScriptRoles) : undefined}
+      isLightModeActive={isLightModeActive}
+    />
     </>
   );
 }
