@@ -98,6 +98,7 @@ docker run -p 8080:80 botc-grimoire-companion
 ## Acknowledgements
 
 - **[botc-icons](https://github.com/tomozbot/botc-icons)** — Role icons used throughout the app are sourced from this project and downloaded automatically at build time.
+- **[The Pandemonium Institute](https://bloodontheclocktower.com)** — Creators of Blood on the Clocktower.
 
 ## License
 
