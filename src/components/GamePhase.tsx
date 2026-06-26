@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { GripVertical, Search, X } from 'lucide-react';
 import { cn } from '../utils/cn';
 import type { Player, Role, PlacedReminder } from '../types';
@@ -124,10 +125,20 @@ export default function GamePhase({
   }, [bluffCandidates, bluffSearch]);
 
   useEffect(() => {
-    if (bluffPickerSlot !== null) {
+    const isTouchDevice = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+    if (bluffPickerSlot !== null && !isTouchDevice) {
       setTimeout(() => bluffSearchRef.current?.focus(), 50);
     }
   }, [bluffPickerSlot]);
+
+  useEffect(() => {
+    if (isBluffOverlayOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isBluffOverlayOpen]);
 
   const setBluff = (slot: number, roleId: string) => {
     if (!onUpdateDemonBluffs) return;
@@ -228,7 +239,7 @@ export default function GamePhase({
                 return (
                   <div key={slot} className="relative">
                     {bluffPickerSlot === slot ? (
-                      <div className="rounded border p-2 space-y-1.5 bg-gray-950 border-gray-700">
+                      <div className="rounded border p-2 space-y-1.5 bg-gray-955 border-gray-700">
                         <div className="flex items-center gap-1.5">
                           <Search size={11} className="text-gray-400 shrink-0" />
                           <input
@@ -343,7 +354,7 @@ export default function GamePhase({
                     'flex-1 rounded px-2 py-1.5 text-xs focus:outline-none border transition-colors',
                     isLightModeActive
                       ? 'bg-white border-gray-300 text-clocktower-night focus:border-clocktower-blood'
-                      : 'bg-gray-950 border-gray-800 text-gray-200 focus:border-clocktower-blood'
+                      : 'bg-gray-955 border-gray-800 text-gray-200 focus:border-clocktower-blood'
                   )}
                 >
                   {(rolesData as Role[]).filter(r => r.team === 'traveler').map(r => (
@@ -485,10 +496,12 @@ export default function GamePhase({
         isLightModeActive={isLightModeActive}
       />
 
-      {/* Demon Bluffs full-screen overlay — always dark */}
-      {isBluffOverlayOpen && (
+      {/* Demon Bluffs full-screen overlay — portalled to body to escape CSS containment */}
+      {isBluffOverlayOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-8 p-8 cursor-pointer"
+          id="demon-bluffs-overlay"
+          className="fixed inset-0 z-[9999] flex flex-col items-center justify-center gap-8 p-8 cursor-pointer overscroll-none touch-none"
+          style={{ backgroundColor: '#020610', color: 'white', minHeight: '100dvh' }}
           onClick={() => setIsBluffOverlayOpen(false)}
         >
           <p className="text-gray-400 text-xs uppercase tracking-widest font-bold select-none">Demon Bluffs — tap to close</p>
@@ -536,7 +549,8 @@ export default function GamePhase({
               );
             })}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
