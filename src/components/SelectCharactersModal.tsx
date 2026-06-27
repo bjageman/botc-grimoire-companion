@@ -119,11 +119,16 @@ export function computeBalance(selectedRoles: Role[], playerCount: number) {
 
   const isOutsiderValid  = (hasKazali || hasXaan) ? true : validOutsiders.includes(counts.outsider);
   const isTownsfolkValid = (hasKazali || hasXaan) ? true : (isOutsiderValid && counts.townsfolk === playerCount - expectedDemon - expectedMinion - counts.outsider + tfDelta);
-  const isDemonValid     = counts.demon  === expectedDemon;
+  const isDemonValid     = hasLunatic
+    ? (counts.demon === expectedDemon || counts.demon === expectedDemon + 1)
+    : (counts.demon === expectedDemon);
   const isMinionValid    = counts.minion === expectedMinion;
 
   const expectedOutsiderLabel  = (hasKazali || hasXaan) ? 'any' : validOutsiders.join(' or ');
   const expectedTownsfolkLabel = (hasKazali || hasXaan) ? 'any' : uniqueTownsfolk.join(' or ');
+  const expectedDemonLabel     = hasLunatic
+    ? `${expectedDemon} or ${expectedDemon + 1}`
+    : String(expectedDemon);
 
   const jinxWarnings: string[] = [];
   if (has('choirboy') && !has('king'))     jinxWarnings.push("Choirboy in play, but no King selected.");
@@ -131,7 +136,7 @@ export function computeBalance(selectedRoles: Role[], playerCount: number) {
 
   const isValid = isDemonValid && isMinionValid && isOutsiderValid && isTownsfolkValid && jinxWarnings.length === 0;
 
-  return { counts, modifications, validOutsiders, isDemonValid, isMinionValid, isOutsiderValid, isTownsfolkValid, isValid, expectedOutsiderLabel, expectedTownsfolkLabel, expectedDemon, expectedMinion, jinxWarnings };
+  return { counts, modifications, validOutsiders, isDemonValid, isMinionValid, isOutsiderValid, isTownsfolkValid, isValid, expectedOutsiderLabel, expectedTownsfolkLabel, expectedDemonLabel, expectedDemon, expectedMinion, jinxWarnings };
 }
 
 export default function SelectCharactersModal({ isOpen, onClose, roles, playerCount, isLightModeActive, onAssign, selectedIds, setSelectedIds }: Props) {
@@ -249,7 +254,7 @@ export default function SelectCharactersModal({ isOpen, onClose, roles, playerCo
                 ? key === 'townsfolk' ? balance.expectedTownsfolkLabel
                 : key === 'outsider'  ? balance.expectedOutsiderLabel
                 : key === 'minion'    ? String(balance.expectedMinion)
-                :                       String(balance.expectedDemon)
+                :                       balance.expectedDemonLabel
                 : null;
               const isValid = balance
                 ? key === 'townsfolk' ? balance.isTownsfolkValid
