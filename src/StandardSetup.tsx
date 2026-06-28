@@ -32,18 +32,31 @@ interface SetupProps {
 }
 
 export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
-  const [syncCode] = useState<string | null>(() => {
+  const [isSecondary] = useState<boolean>(() => {
     const params = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : window.location.search);
-    return params.get('syncCode');
+    return params.has('syncCode');
   });
-  const isSecondary = !!syncCode;
+
+  const [syncCode, setSyncCode] = useState<string>(() => {
+    const params = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : window.location.search);
+    const urlSync = params.get('syncCode');
+    if (urlSync) return urlSync.toUpperCase();
+
+    const saved = localStorage.getItem('standard-botc-sync-code');
+    if (saved) return saved;
+    const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('standard-botc-sync-code', newSync);
+    return newSync;
+  });
+
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [hasReceivedSync, setHasReceivedSync] = useState(!isSecondary);
 
   const [gameCode, setGameCode] = useState<string>(() => {
-    if (isSecondary && syncCode) {
-      return syncCode.replace(/-st$/, '').toUpperCase();
-    }
+    const params = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : window.location.search);
+    const urlGame = params.get('gameCode');
+    if (isSecondary && urlGame) return urlGame.toUpperCase();
+
     const saved = localStorage.getItem('standard-botc-game-code');
     if (saved) return saved;
     const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
@@ -266,8 +279,11 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
       localStorage.removeItem('standard-botc-game');
       const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
       localStorage.setItem('standard-botc-game-code', newCode);
+      const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+      localStorage.setItem('standard-botc-sync-code', newSync);
       window.location.hash = '';
       setGameCode(newCode);
+      setSyncCode(newSync);
     }, 'Reset Game');
   };
 
@@ -417,7 +433,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   }, [phase, players, broadcastSetupUpdate, isSecondary]);
 
   // Storyteller Sync channel (laptop <-> phone)
-  const syncChannelCode = gameCode ? `${gameCode}-st` : '';
+  const syncChannelCode = syncCode;
   const sendSyncRef = useRef<((payload: unknown) => Promise<void>) | null>(null);
 
   const handleIncomingSyncMessage = useCallback((data: unknown) => {
@@ -1187,8 +1203,8 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     )}
     {showSyncModal && (
       <RoomCodeModal
-        gameCode={`${gameCode}-st`}
-        joinUrl={`${window.location.origin}${window.location.pathname}#/standard?syncCode=${gameCode}-st`}
+        gameCode={syncCode}
+        joinUrl={`${window.location.origin}${window.location.pathname}#/standard?syncCode=${syncCode}&gameCode=${gameCode}`}
         onClose={() => setShowSyncModal(false)}
         isLightModeActive={isLightModeActive}
       />
