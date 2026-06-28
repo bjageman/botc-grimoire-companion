@@ -467,7 +467,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
             scriptName,
             isLilMonstaGame,
             demonBluffs,
-            gameLog,
+            gameLog: gameLog.slice(-30),
             reminderTokens,
             checkedItems,
           }
@@ -496,7 +496,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         scriptName,
         isLilMonstaGame,
         demonBluffs,
-        gameLog,
+        gameLog: gameLog.slice(-30),
         reminderTokens,
         checkedItems,
       });
@@ -569,7 +569,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     scriptName,
     isLilMonstaGame,
     demonBluffs,
-    gameLog,
+    gameLog: gameLog.slice(-30),
     reminderTokens,
     checkedItems,
   });
@@ -587,7 +587,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           scriptName,
           isLilMonstaGame,
           demonBluffs,
-          gameLog,
+          gameLog: gameLog.slice(-30),
           reminderTokens,
           checkedItems,
         }
