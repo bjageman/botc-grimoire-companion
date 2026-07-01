@@ -6,13 +6,14 @@ import type { Player, Role } from './types';
 import { TEAM_ORDER } from './types';
 import { parseScriptFile } from './utils/scriptUtils';
 
-import PlayerDetailsModal from './components/PlayerDetailsModal';
-import GamePhase from './components/GamePhase';
-import PlayerTrackerSetupPhase from './components/PlayerTrackerSetupPhase';
+import PlayerDetailsModal from './components/shared/PlayerDetailsModal';
+import GamePhase from './components/shared/GamePhase';
+import PlayerTrackerSetupPhase from './components/tracker/SetupPhase';
+import PlayerTrackerNameEditModal from './components/tracker/NameEditModal';
 import { usePlayerDragAndDrop } from './hooks/usePlayerDragAndDrop';
 import { useGameSocket } from './hooks/useGameSocket';
-import PageLayout from './components/PageLayout';
-import DialogModal from './components/DialogModal';
+import PageLayout from './components/shared/PageLayout';
+import DialogModal from './components/shared/DialogModal';
 import { useDialog } from './hooks/useDialog';
 
 type Phase = 'setup' | 'game';
@@ -79,6 +80,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
 
   // Details modal states
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [activeTrackerPlayerId, setActiveTrackerPlayerId] = useState<string | null>(null);
   const [isSearchingRole, setIsSearchingRole] = useState(false);
   const [modalRoleSearch, setModalRoleSearch] = useState('');
 
@@ -213,6 +215,24 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
     setModalRoleSearch('');
   };
 
+  const disconnectSync = () => {
+    showConfirm('Disconnect from this synced session? You\'ll keep your current players and notes locally, but stop receiving updates from the Storyteller.', () => {
+      sessionStorage.removeItem('joined-code');
+      sessionStorage.removeItem('joined-name');
+      const saved = localStorage.getItem('player-tracker-botc-game');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          delete parsed.code;
+          localStorage.setItem('player-tracker-botc-game', JSON.stringify(parsed));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setGameCode(null);
+    }, 'Disconnect Sync');
+  };
+
   const resetGame = () => {
     showConfirm('Are you sure you want to reset the tracker? This clears all players and settings.', () => {
       setPlayers([]);
@@ -256,7 +276,6 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
-    movePlayer,
   } = usePlayerDragAndDrop(players, setPlayers);
 
   // Save to localStorage
@@ -322,15 +341,19 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   };
 
   const updatePlayerName = (id: string, name: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, name } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, name } : p));
   };
 
   const updatePlayerNotes = (id: string, notes: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, notes } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, notes } : p));
+  };
+
+  const updatePlayerPronouns = (id: string, pronouns: string) => {
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, pronouns } : p));
   };
 
   const updatePlayerRole = (id: string, roleId: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         return {
           ...p,
@@ -348,7 +371,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   };
 
   const updatePlayerRoles = (id: string, roleIds: string[]) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         return {
           ...p,
@@ -366,7 +389,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   };
 
   const togglePlayerDead = (id: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const nextDead = !p.isDead;
         return {
@@ -380,11 +403,11 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   };
 
   const togglePlayerDeadVote = (id: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, hasDeadVote: !p.hasDeadVote } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, hasDeadVote: !p.hasDeadVote } : p));
   };
 
   const togglePlayerEvil = (id: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const roleObj = (rolesData as Role[]).find(r => r.id === p.roleId);
         const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
@@ -396,7 +419,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   };
 
   const togglePlayerDrunkOrPoisoned = (id: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, isDrunkOrPoisoned: !p.isDrunkOrPoisoned } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, isDrunkOrPoisoned: !p.isDrunkOrPoisoned } : p));
   };
 
   const handleScriptUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -464,7 +487,43 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       toggleTheme={toggleTheme}
       backHref={phase === 'setup' ? "#/" : undefined}
       onBack={phase !== 'setup' ? () => setPhase('setup') : undefined}
-      title="Game Notes"
+      titleContent={
+        <div className="flex items-center justify-center gap-2">
+          <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
+            Game Notes
+          </h1>
+          {isSynced && (
+            <div
+              onClick={disconnectSync}
+              className={cn(
+                "hidden md:flex cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none items-baseline gap-1",
+                isLightModeActive
+                  ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
+              )}
+              title="Click to disconnect from the Storyteller's live game"
+            >
+              Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
+            </div>
+          )}
+        </div>
+      }
+      headerExtra={
+        isSynced ? (
+          <div
+            onClick={disconnectSync}
+            className={cn(
+              "md:hidden cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none flex items-baseline gap-1",
+              isLightModeActive
+                ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
+            )}
+            title="Click to disconnect from the Storyteller's live game"
+          >
+            Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
+          </div>
+        ) : undefined
+      }
       extraControls={
         <button
           id="reset-game-button"
@@ -487,8 +546,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           newPlayerName={newPlayerName}
           setNewPlayerName={setNewPlayerName}
           addPlayer={addPlayer}
-          removePlayer={removePlayer}
-          updatePlayerName={updatePlayerName}
+          setActiveTrackerPlayerId={setActiveTrackerPlayerId}
           fileInputRef={fileInputRef}
           handleScriptUpload={handleScriptUpload}
           clearCustomScript={clearCustomScript}
@@ -504,8 +562,19 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           handleTouchStart={handleTouchStart}
           handleTouchMove={handleTouchMove}
           handleTouchEnd={handleTouchEnd}
-          movePlayer={movePlayer}
           isSynced={isSynced}
+        />
+      )}
+
+      {/* Player Edit Modal (setup phase) */}
+      {activeTrackerPlayerId && (
+        <PlayerTrackerNameEditModal
+          activePlayerId={activeTrackerPlayerId}
+          players={players}
+          isLightModeActive={isLightModeActive}
+          updatePlayerName={updatePlayerName}
+          removePlayer={removePlayer}
+          onClose={() => setActiveTrackerPlayerId(null)}
         />
       )}
 
@@ -578,6 +647,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           onUpdateName={updatePlayerName}
           onUpdateRole={updatePlayerRole}
           onUpdateNotes={updatePlayerNotes}
+          onUpdatePronouns={updatePlayerPronouns}
           onToggleDead={togglePlayerDead}
           onToggleDeadVote={togglePlayerDeadVote}
           onToggleDrunkOrPoisoned={togglePlayerDrunkOrPoisoned}

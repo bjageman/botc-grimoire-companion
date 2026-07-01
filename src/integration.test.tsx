@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import StandardSetup from './StandardSetup';
 import PlayerTracker from './PlayerTracker';
 import JoinPage from './JoinPage';
+import type { PlacedReminder } from './types';
 
 interface SocketSubscription {
   gameCode: string;
@@ -11,6 +12,7 @@ interface SocketSubscription {
 }
 
 const activeSubscriptions: SocketSubscription[] = [];
+const sentPayloads: Array<{ gameCode: string; payload: unknown }> = [];
 
 // Mock useGameSocket to route messages between components sharing the same game code
 vi.mock('./hooks/useGameSocket', () => {
@@ -29,12 +31,13 @@ vi.mock('./hooks/useGameSocket', () => {
       }, [gameCode, onMessage]);
 
       const sendMessage = vi.fn(async (payload: unknown) => {
+        sentPayloads.push({ gameCode, payload });
         // Simulate network latency
         await new Promise((resolve) => setTimeout(resolve, 10));
         // Run callbacks in act since they update component state
         act(() => {
           activeSubscriptions.forEach((sub) => {
-            if (sub.gameCode.toLowerCase() === gameCode.toLowerCase()) {
+            if (sub.gameCode.toLowerCase() === gameCode.toLowerCase() && sub.onMessage !== onMessage) {
               sub.onMessage(payload);
             }
           });
@@ -54,6 +57,7 @@ describe('Storyteller Reset Integration', () => {
     localStorage.clear();
     sessionStorage.clear();
     activeSubscriptions.length = 0;
+    sentPayloads.length = 0;
     vi.clearAllMocks();
   });
 
@@ -159,5 +163,626 @@ describe('Storyteller Reset Integration', () => {
 
     unmountStoryteller();
     unmountJoinPage();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Storyteller Device Sync Integration
+// ---------------------------------------------------------------------------
+
+const SYNC_CODE = 'SYNC';
+const GAME_CODE = 'GAME';
+
+const SYNC_PLAYERS = [
+  { id: 'p1', name: 'Alice', isDead: false, roleId: 'imp', isEvil: true },
+  { id: 'p2', name: 'Bob', isDead: false, roleId: 'washerwoman' },
+  { id: 'p3', name: 'Carol', isDead: false, roleId: 'empath' },
+  { id: 'p4', name: 'Dave', isDead: false, roleId: 'poisoner', isEvil: true },
+  { id: 'p5', name: 'Eve', isDead: false, roleId: 'butler' },
+];
+
+// 10 reminder tokens spread across all 5 players — two per reminder text
+const SYNC_REMINDERS: PlacedReminder[] = [
+  { id: 'r1',  sourceCharId: 'washerwoman', text: 'Washerwoman', targetPlayerId: 'p1' },
+  { id: 'r2',  sourceCharId: 'empath',      text: 'Empath',      targetPlayerId: 'p2' },
+  { id: 'r3',  sourceCharId: 'poisoner',    text: 'Poisoned',    targetPlayerId: 'p3' },
+  { id: 'r4',  sourceCharId: 'butler',      text: 'Master',      targetPlayerId: 'p4' },
+  { id: 'r5',  sourceCharId: 'imp',         text: 'Dead',        targetPlayerId: 'p1' },
+  { id: 'r6',  sourceCharId: 'empath',      text: 'Empath',      targetPlayerId: 'p5' },
+  { id: 'r7',  sourceCharId: 'poisoner',    text: 'Poisoned',    targetPlayerId: 'p2' },
+  { id: 'r8',  sourceCharId: 'washerwoman', text: 'Washerwoman', targetPlayerId: 'p3' },
+  { id: 'r9',  sourceCharId: 'imp',         text: 'Dead',        targetPlayerId: 'p4' },
+  { id: 'r10', sourceCharId: 'butler',      text: 'Master',      targetPlayerId: 'p5' },
+];
+
+function seedPrimary(overrides: Record<string, unknown> = {}) {
+  localStorage.setItem('standard-botc-sync-code', SYNC_CODE);
+  localStorage.setItem('standard-botc-game-code', GAME_CODE);
+  localStorage.setItem('standard-botc-game', JSON.stringify({
+    players: SYNC_PLAYERS,
+    phase: 'game',
+    timeOfDay: 'night',
+    dayNumber: 1,
+    reminderTokens: SYNC_REMINDERS,
+    checkedItems: {},
+    customScriptRoles: null,
+    scriptName: 'All Roles',
+    isLilMonstaGame: false,
+    demonBluffs: [],
+    gameLog: [],
+    ...overrides,
+  }));
+}
+
+// Delivers a sync_request to all sync-channel subscribers so the primary
+// responds immediately, bypassing the 1 s setTimeout in StandardSetup.
+async function triggerSync() {
+  act(() => {
+    activeSubscriptions
+      .filter(s => s.gameCode.toLowerCase() === SYNC_CODE.toLowerCase())
+      .forEach(s => s.onMessage({ type: 'storyteller_sync_request' }));
+  });
+  await act(async () => {
+    await new Promise(resolve => setTimeout(resolve, 50));
+  });
+}
+
+// Returns the last storyteller_state_sync payload sent on the sync channel.
+function lastSyncState(): Record<string, unknown> | undefined {
+  const found = [...sentPayloads]
+    .reverse()
+    .find(p =>
+      p.gameCode.toLowerCase() === SYNC_CODE.toLowerCase() &&
+      (p.payload as { type?: string }).type === 'storyteller_state_sync'
+    );
+  return found ? (found.payload as { state: Record<string, unknown> }).state : undefined;
+}
+
+// Renders primary (from localStorage) then secondary (starting fresh), syncs them.
+async function renderSyncedPair() {
+  window.location.hash = '#/standard';
+  const primary = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+  // Secondary must start with no saved game so it truly relies on sync
+  localStorage.removeItem('standard-botc-game');
+
+  window.location.hash = `#/standard?syncCode=${SYNC_CODE}&gameCode=${GAME_CODE}`;
+  const secondary = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+  await triggerSync();
+
+  return { primary, secondary };
+}
+
+describe('Storyteller Device Sync', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    activeSubscriptions.length = 0;
+    sentPayloads.length = 0;
+    vi.clearAllMocks();
+  });
+
+  it('transfers all 10 reminder tokens to the secondary on initial sync', async () => {
+    seedPrimary();
+    const { primary, secondary } = await renderSyncedPair();
+
+    const sec = within(secondary.container);
+
+    // All 5 players visible — confirms the game phase was synced
+    // (player names may appear more than once, e.g. board + night-order widget)
+    for (const name of ['Alice', 'Bob', 'Carol', 'Dave', 'Eve']) {
+      expect(sec.getAllByText(name).length).toBeGreaterThan(0);
+    }
+
+    // Collect the title attrs of every reminder token button in the secondary board
+    const titles = Array.from(
+      secondary.container.querySelectorAll<HTMLElement>('button[title]')
+    ).map(b => b.getAttribute('title'));
+
+    // Two reminders per text (one on each of two different players)
+    expect(titles.filter(t => t === 'Poisoned').length).toBe(2);
+    expect(titles.filter(t => t === 'Dead').length).toBe(2);
+    expect(titles.filter(t => t === 'Master').length).toBe(2);
+    expect(titles.filter(t => t === 'Washerwoman').length).toBe(2);
+    expect(titles.filter(t => t === 'Empath').length).toBe(2);
+
+    // Also verify primary shows its own reminders (sanity check)
+    const primaryTitles = Array.from(
+      primary.container.querySelectorAll<HTMLElement>('button[title]')
+    ).map(b => b.getAttribute('title'));
+    const knownTexts = new Set(['Poisoned', 'Dead', 'Master', 'Washerwoman', 'Empath']);
+    expect(primaryTitles.filter(t => knownTexts.has(t ?? '')).length).toBe(10);
+
+    primary.unmount();
+    secondary.unmount();
+  });
+
+  it('syncs time-of-day toggle from primary to secondary in real time', async () => {
+    seedPrimary();
+    const { primary, secondary } = await renderSyncedPair();
+
+    // Both start at Night 1
+    expect(within(primary.container).getAllByText('Night 1').length).toBeGreaterThan(0);
+    expect(within(secondary.container).getAllByText('Night 1').length).toBeGreaterThan(0);
+
+    // Click the time-of-day badge on primary to advance to Day 1
+    const timeBadge = primary.container.querySelector('#grimoire-info-row');
+    expect(timeBadge).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(timeBadge!);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // Secondary should now reflect Day 1 without any manual interaction
+    expect(within(secondary.container).getAllByText('Day 1').length).toBeGreaterThan(0);
+
+    primary.unmount();
+    secondary.unmount();
+  });
+
+  it('syncs board rotation offset from primary to secondary', async () => {
+    seedPrimary();
+    const { primary, secondary } = await renderSyncedPair();
+
+    const rotateBtn = () => primary.container.querySelector<HTMLElement>(
+      'button[title="Rotate counter-clockwise"]'
+    );
+    expect(rotateBtn()).not.toBeNull();
+
+    // Click rotate three times, one at a time so each state update lands before the next
+    for (let i = 0; i < 3; i++) {
+      await act(async () => {
+        fireEvent.click(rotateBtn()!);
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+    }
+
+    // Force a fresh full-state dump from primary and confirm rotationOffset is now 3
+    sentPayloads.length = 0;
+    await triggerSync();
+    const state = lastSyncState();
+    expect(state).toBeDefined();
+    expect(state!.rotationOffset).toBe(3);
+
+    primary.unmount();
+    secondary.unmount();
+  });
+
+  it('reminder tokens survive a round-trip: primary → secondary → resync', async () => {
+    seedPrimary();
+    const { primary, secondary } = await renderSyncedPair();
+
+    // Confirm all 10 reminders arrived on secondary
+    const afterFirstSync = lastSyncState();
+    expect((afterFirstSync!.reminderTokens as PlacedReminder[]).length).toBe(10);
+
+    // Trigger a second sync (simulates secondary reconnecting)
+    await triggerSync();
+    const afterSecondSync = lastSyncState();
+    expect((afterSecondSync!.reminderTokens as PlacedReminder[]).length).toBe(10);
+
+    // The same 10 IDs should be present in both syncs
+    const ids = (s: Record<string, unknown>) =>
+      (s.reminderTokens as PlacedReminder[]).map(r => r.id).sort();
+    expect(ids(afterFirstSync!)).toEqual(ids(afterSecondSync!));
+
+    primary.unmount();
+    secondary.unmount();
+  });
+
+  it('syncs day-number advance alongside time-of-day toggle', async () => {
+    seedPrimary();
+    const { primary, secondary } = await renderSyncedPair();
+
+    // Re-query inside each act so the reference is always fresh after re-renders
+    const clickTimeBadge = async () => {
+      await act(async () => {
+        fireEvent.click(primary.container.querySelector('#grimoire-info-row')!);
+        await new Promise(resolve => setTimeout(resolve, 150));
+      });
+    };
+
+    // Night → Day: verify via DOM on secondary
+    await clickTimeBadge();
+    expect(within(secondary.container).getAllByText('Day 1').length).toBeGreaterThan(0);
+
+    // Day → Night 2: verify via sync payload (more reliable than DOM after multiple toggles)
+    sentPayloads.length = 0;
+    await clickTimeBadge();
+    const nightSync = lastSyncState();
+    expect(nightSync).toBeDefined();
+    expect(nightSync!.timeOfDay).toBe('night');
+    expect(nightSync!.dayNumber).toBe(2);
+
+    primary.unmount();
+    secondary.unmount();
+  });
+
+  it('syncs the time and day multiple times in a row up to Night 10', async () => {
+    seedPrimary();
+    const { primary, secondary } = await renderSyncedPair();
+
+    const clickTimeBadge = async () => {
+      await act(async () => {
+        fireEvent.click(primary.container.querySelector('#grimoire-info-row')!);
+        await new Promise(resolve => setTimeout(resolve, 150));
+      });
+    };
+
+    // Toggle repeatedly: Night 1 -> Day 1 -> Night 2 -> Day 2 -> ... -> Night 10
+    // Starting at Night 1, we need 18 toggles to reach Night 10.
+    const targetToggles = 18;
+    for (let i = 0; i < targetToggles; i++) {
+      sentPayloads.length = 0;
+      await clickTimeBadge();
+
+      const lastSync = lastSyncState();
+      expect(lastSync).toBeDefined();
+
+      const expectedTime = i % 2 === 0 ? 'day' : 'night';
+      const expectedDay = Math.floor(i / 2) + 1 + (i % 2 === 0 ? 0 : 1);
+
+      expect(lastSync!.timeOfDay).toBe(expectedTime);
+      expect(lastSync!.dayNumber).toBe(expectedDay);
+    }
+
+    primary.unmount();
+    secondary.unmount();
+  });
+});
+
+describe('Storyteller Grimoire Bug Fixes', () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+    window.history.replaceState({}, '', '#/standard');
+    localStorage.clear();
+    sessionStorage.clear();
+    activeSubscriptions.length = 0;
+    sentPayloads.length = 0;
+    vi.clearAllMocks();
+  });
+
+  it('preserves player alignment on role updates during game phase', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman', isEvil: true },
+      { id: 'p2', name: 'Bob', isDead: false, roleId: 'poisoner', isEvil: false }
+    ];
+    
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // Open details modal for Alice (Washerwoman, isEvil: true)
+    const aliceRow = storyteller.container.querySelector('#ledger-player-p1');
+    expect(aliceRow).not.toBeNull();
+    
+    await act(async () => {
+      fireEvent.click(aliceRow!);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    // Enter character search/selection mode
+    const changeRoleBtn = storyteller.container.querySelector('#detail-change-role-button');
+    expect(changeRoleBtn).not.toBeNull();
+    fireEvent.click(changeRoleBtn!);
+
+    // Update Alice's role to Empath
+    const empathBtn = storyteller.container.querySelector('#detail-role-option-empath');
+    expect(empathBtn).not.toBeNull();
+    
+    await act(async () => {
+      fireEvent.click(empathBtn!);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // Verify Alice's role is updated but alignment (isEvil: true) is preserved
+    const saved = JSON.parse(localStorage.getItem('standard-botc-game') || '{}');
+    const alice = saved.players.find((p: { id: string; roleId?: string; isEvil?: boolean }) => p.id === 'p1');
+    expect(alice).toBeDefined();
+    expect(alice!.roleId).toBe('empath');
+    expect(alice!.isEvil).toBe(true);
+
+    storyteller.unmount();
+  });
+
+  it('persists both name and notes when edited together and the modal is closed (regression: stale-closure race)', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' },
+    ];
+
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    const aliceRow = storyteller.container.querySelector('#ledger-player-p1');
+    expect(aliceRow).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(aliceRow!);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    const nameInput = storyteller.container.querySelector('#detail-player-name-input') as HTMLInputElement;
+    const notesInput = storyteller.container.querySelector('input[placeholder="Notes..."]') as HTMLInputElement;
+    expect(nameInput).not.toBeNull();
+    expect(notesInput).not.toBeNull();
+
+    fireEvent.change(nameInput, { target: { value: 'Alicia' } });
+    fireEvent.change(notesInput, { target: { value: 'Watch this one' } });
+
+    const closeBtn = storyteller.container.querySelector('#detail-close-button');
+    expect(closeBtn).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(closeBtn!);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const saved = JSON.parse(localStorage.getItem('standard-botc-game') || '{}');
+    const alice = saved.players.find((p: { id: string; name?: string; notes?: string }) => p.id === 'p1');
+    expect(alice).toBeDefined();
+    expect(alice!.name).toBe('Alicia');
+    expect(alice!.notes).toBe('Watch this one');
+
+    storyteller.unmount();
+  });
+
+  it('clears checklist checkboxes on day/night transitions', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }
+    ];
+    
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+      checkedItems: { 'washerwoman-p1': true }
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // Click the time-of-day badge to toggle from Night 1 to Day 1
+    const timeBadge = storyteller.container.querySelector('#grimoire-info-row');
+    expect(timeBadge).not.toBeNull();
+
+    await act(async () => {
+      fireEvent.click(timeBadge!);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // Verify checkedItems is empty in local storage
+    const saved = JSON.parse(localStorage.getItem('standard-botc-game') || '{}');
+    expect(saved.checkedItems).toEqual({});
+
+    storyteller.unmount();
+  });
+
+  it('renders correct character tokens (Drunk/Marionette/Lunatic) with fake role name on board', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', isDead: false, roleId: 'imp', isTheLunatic: true },
+      { id: 'p2', name: 'Bob', isDead: false, roleId: 'empath', isTheMarionette: true },
+      { id: 'p3', name: 'Carol', isDead: false, roleId: 'washerwoman', isTheDrunk: true },
+    ];
+    
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // Verify that the text on the board shows the underlying character token
+    expect(within(storyteller.container).getByText('LUNATIC')).toBeInTheDocument();
+    expect(within(storyteller.container).getByText('MARIONETTE')).toBeInTheDocument();
+    expect(within(storyteller.container).getByText('DRUNK')).toBeInTheDocument();
+
+    storyteller.unmount();
+  });
+
+  it('preserves bag setup state (selectedCharacterIds) in standard setup when switching phases', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', roleId: 'imp' },
+      { id: 'p2', name: 'Bob', roleId: 'washerwoman' },
+      { id: 'p3', name: 'Carol', roleId: 'empath' },
+      { id: 'p4', name: 'Dave', roleId: 'poisoner' },
+      { id: 'p5', name: 'Eve', roleId: 'butler' }
+    ];
+    
+    localStorage.setItem('standard-botc-game', JSON.stringify({
+      players: PLAYERS,
+      phase: 'setup',
+      timeOfDay: 'night',
+      dayNumber: 1,
+      selectedCharacterIds: ['imp', 'poisoner'],
+    }));
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    const startButton = storyteller.container.querySelector('#open-grimoire-button');
+
+    expect(startButton).not.toBeNull();
+    
+    await act(async () => {
+      fireEvent.click(startButton!);
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
+
+    // Verify phase is now game and selectedCharacterIds is still ['imp', 'poisoner']
+    const saved = JSON.parse(localStorage.getItem('standard-botc-game') || '{}');
+    expect(saved.phase).toBe('game');
+    expect(saved.selectedCharacterIds).toEqual(['imp', 'poisoner']);
+
+    storyteller.unmount();
+  });
+
+  it('renders selected demon for Lunatic in details modal, grimoire board, and game phase list', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', isDead: false, roleId: 'imp', isTheLunatic: true },
+    ];
+    
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // 1. Verify Grimoire Board displays the selected Demon (Imp) name on the token and badge
+    expect(within(storyteller.container).getByText('LUNATIC')).toBeInTheDocument();
+    
+    // The main token text should show "Imp"
+    const boardTokens = storyteller.container.querySelectorAll('textPath');
+    const tokenNames = Array.from(boardTokens).map(el => el.textContent);
+    expect(tokenNames).toContain('Imp');
+    expect(tokenNames).not.toContain('Lunatic');
+
+    // 2. Open details modal for Alice
+    const playerToken = storyteller.container.querySelector('#grimoire-player-p1');
+    expect(playerToken).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(playerToken!);
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
+
+    // Verify Details Modal shows "Imp" instead of "Lunatic" as the character title
+    const modalTextPaths = storyteller.container.querySelectorAll('textPath');
+    const modalTokenNames = Array.from(modalTextPaths).map(el => el.textContent);
+    expect(modalTokenNames).toContain('Imp');
+
+    // Close details modal
+    const closeBtn = storyteller.container.querySelector('#detail-close-button');
+    expect(closeBtn).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(closeBtn!);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // 3. Switch to Game Phase view / check player list
+    const sidebarRoleNames = Array.from(storyteller.container.querySelectorAll('.truncate')).map(el => el.textContent);
+    // Should show the Demon role name (Imp) next to the player name
+    expect(sidebarRoleNames).toContain('Imp');
+    expect(sidebarRoleNames).not.toContain('Lunatic');
+
+    storyteller.unmount();
+  });
+
+  it('renders assigned good role for Marionette in details modal, grimoire board, and game phase list', async () => {
+    // Marionette is always assigned a good role (Townsfolk/Outsider) — they think they are that character
+    const PLAYERS = [
+      { id: 'p1', name: 'Bob', isDead: false, roleId: 'washerwoman', isTheMarionette: true },
+    ];
+
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // 1. Verify Grimoire Board displays the assigned Townsfolk (Washerwoman) name on the token and badge
+    expect(within(storyteller.container).getByText('MARIONETTE')).toBeInTheDocument();
+
+    const boardTokens = storyteller.container.querySelectorAll('textPath');
+    const tokenNames = Array.from(boardTokens).map(el => el.textContent);
+    expect(tokenNames).toContain('Washerwoman');
+    expect(tokenNames).not.toContain('Marionette');
+
+    // 2. Open details modal for Bob
+    const playerToken = storyteller.container.querySelector('#grimoire-player-p1');
+    expect(playerToken).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(playerToken!);
+      await new Promise(resolve => setTimeout(resolve, 150));
+    });
+
+    // Verify Details Modal shows "Washerwoman" instead of "Marionette" as the character title
+    const modalTextPaths = storyteller.container.querySelectorAll('textPath');
+    const modalTokenNames = Array.from(modalTextPaths).map(el => el.textContent);
+    expect(modalTokenNames).toContain('Washerwoman');
+
+    // Close details modal
+    const closeBtn = storyteller.container.querySelector('#detail-close-button');
+    expect(closeBtn).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(closeBtn!);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // 3. Check player list in sidebar
+    const sidebarRoleNames = Array.from(storyteller.container.querySelectorAll('.truncate')).map(el => el.textContent);
+    expect(sidebarRoleNames).toContain('Washerwoman');
+    expect(sidebarRoleNames).not.toContain('Marionette');
+
+    storyteller.unmount();
+  });
+});
+
+describe('Storyteller Notes Privacy', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    activeSubscriptions.length = 0;
+    sentPayloads.length = 0;
+    vi.clearAllMocks();
+  });
+
+  it('never broadcasts the storyteller\'s private player notes to a synced client', async () => {
+    window.location.hash = '#/standard';
+    localStorage.setItem('standard-botc-game', JSON.stringify({
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman', notes: 'Secretly suspicious of everyone' }],
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    }));
+
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+    const gameCode = localStorage.getItem('standard-botc-game-code');
+
+    sessionStorage.setItem('joined-code', gameCode!);
+    const tracker = render(<PlayerTracker theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // Every payload sent to players (game_update / setup_update) must never carry `notes`
+    const leaked = sentPayloads.some(p => {
+      const payload = p.payload as { players?: Array<{ notes?: string }> };
+      return payload.players?.some(pl => pl.notes !== undefined);
+    });
+    expect(leaked).toBe(false);
+    expect(sentPayloads.length).toBeGreaterThan(0);
+
+    // And the note text itself should never reach the player's rendered UI
+    expect(within(tracker.container).queryByText(/Secretly suspicious/)).toBeNull();
+
+    storyteller.unmount();
+    tracker.unmount();
   });
 });

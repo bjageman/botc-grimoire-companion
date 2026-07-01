@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useScrollLock } from './hooks/useScrollLock';
 import { useGameSocket } from './hooks/useGameSocket';
+import { useIsMobile } from './hooks/useIsMobile';
 import rolesData from './official_roles.json';
 import { cn } from './utils/cn';
 import { ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, Settings, CheckCircle2, RotateCcw, Plus, Search, Moon, Scroll, QrCode } from 'lucide-react';
 import type { Role, Player } from './types';
-import ScriptCharactersModal from './components/ScriptCharactersModal';
-import GrimoireBoard from './components/GrimoireBoard';
-import PageLayout from './components/PageLayout';
-import DialogModal from './components/DialogModal';
+import ScriptCharactersModal from './components/shared/ScriptCharactersModal';
+import GrimoireBoard from './components/shared/GrimoireBoard';
+import PageLayout from './components/shared/PageLayout';
+import DialogModal from './components/shared/DialogModal';
 import { useDialog } from './hooks/useDialog';
-import RoomCodeModal from './components/RoomCodeModal';
+import RoomCodeModal from './components/shared/RoomCodeModal';
 
 export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dark'; toggleTheme: () => void }) {
   const [code, setCode] = useState(() => {
@@ -103,11 +104,11 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
   const handleMessage = (data: unknown) => {
     const payload = data as GamePayload;
     if (payload.type === 'setup_update') {
-      const isMyNameInList = payload.players?.some(
+      const me = payload.players?.find(
         (pl) => pl.name.trim().toLowerCase() === name.trim().toLowerCase() || pl.id === playerId
       );
 
-      if (isMyNameInList) {
+      if (me) {
         if (joinRetryIntervalRef.current) clearInterval(joinRetryIntervalRef.current);
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         setGameType(payload.gameType);
@@ -174,14 +175,15 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         setTimeOfDay(payload.timeOfDay || 'night');
         setDayNumber(payload.dayNumber || 1);
 
-        // Check if I am in the player list and find my assigned role
         const me = payload.players.find((pl) => pl.name.trim().toLowerCase() === name.trim().toLowerCase() || pl.id === playerId);
-        if (me && me.roleId) {
-          const rObj = (rolesData as Role[]).find(r => r.id === me.roleId);
-          if (rObj) {
-            setAssignedRole(rObj);
-            if (state === 'waiting' || state === 'preferences') {
-              setState('revealed');
+        if (me) {
+          if (me.roleId) {
+            const rObj = (rolesData as Role[]).find(r => r.id === me.roleId);
+            if (rObj) {
+              setAssignedRole(rObj);
+              if (state === 'waiting' || state === 'preferences') {
+                setState('revealed');
+              }
             }
           }
         }
@@ -191,6 +193,14 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
       sessionStorage.removeItem('joined-code');
       sessionStorage.removeItem('joined-name');
       setState('join');
+    } else if (payload.type === 'booted') {
+      if (payload.playerId === playerId) {
+        showAlert('You have been booted from the game room.');
+        sessionStorage.removeItem('joined-code');
+        sessionStorage.removeItem('joined-name');
+        window.location.hash = '#/join';
+        setState('join');
+      }
     }
   };
 
@@ -313,8 +323,9 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     });
   };
 
-  const isMobile = useMemo(() => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent), []);
+  const isMobile = useIsMobile();
   const isLight = theme === 'light';
+
 
   return (
     <>
@@ -633,8 +644,8 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
 
             <div className="space-y-2">
               <p className={cn("text-[10px] uppercase font-bold tracking-wider text-center", isLight ? "text-gray-400" : "text-gray-500")}>Pronouns (optional)</p>
-              <div className="flex gap-2 justify-center">
-                {['He/Him', 'She/Her', 'They/Them'].map(p => (
+              <div className="flex justify-center gap-1.5">
+                {['He/Him', 'She/Her', 'They/Them', 'Ask Me'].map(p => (
                   <button
                     key={p}
                     type="button"
@@ -645,7 +656,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
                       sendMessage({ type: 'player_join', name, id: playerId, pronouns: next || undefined });
                     }}
                     className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-semibold border transition-all",
+                      "px-2 py-1.5 rounded-full text-xs font-semibold border transition-all whitespace-nowrap",
                       pronouns === p
                         ? "bg-clocktower-blood text-white border-clocktower-blood"
                         : isLight
@@ -734,16 +745,18 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
                   <img src={`/icons/${assignedRole.id}.svg`} alt={assignedRole.name} className="w-20 h-20 object-contain" />
                 </div>
 
-                <span className={cn(
-                  "text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded border mb-2",
-                  assignedRole.team === 'townsfolk' && "text-clocktower-townsfolk border-clocktower-townsfolk/40 bg-clocktower-townsfolk/5",
-                  assignedRole.team === 'outsider' && "text-clocktower-outsider border-clocktower-outsider/40 bg-clocktower-outsider/5",
-                  assignedRole.team === 'minion' && "text-clocktower-minion border-clocktower-minion/40 bg-clocktower-minion/5",
-                  assignedRole.team === 'demon' && "text-clocktower-demon border-clocktower-demon/40 bg-clocktower-demon/5",
-                  assignedRole.team === 'traveler' && "text-clocktower-traveler border-clocktower-traveler/40 bg-clocktower-traveler/5"
-                )}>
-                  {assignedRole.team}
-                </span>
+                <div className="flex gap-2 justify-center items-center mb-3">
+                  <span className={cn(
+                    "text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded border",
+                    assignedRole.team === 'townsfolk' && "text-clocktower-townsfolk border-clocktower-townsfolk/40 bg-clocktower-townsfolk/5",
+                    assignedRole.team === 'outsider' && "text-clocktower-outsider border-clocktower-outsider/40 bg-clocktower-outsider/5",
+                    assignedRole.team === 'minion' && "text-clocktower-minion border-clocktower-minion/40 bg-clocktower-minion/5",
+                    assignedRole.team === 'demon' && "text-clocktower-demon border-clocktower-demon/40 bg-clocktower-demon/5",
+                    assignedRole.team === 'traveler' && "text-clocktower-traveler border-clocktower-traveler/40 bg-clocktower-traveler/5"
+                  )}>
+                    {assignedRole.team}
+                  </span>
+                </div>
 
                 <h3 className={cn(
                   "font-display text-2xl font-bold tracking-wider",

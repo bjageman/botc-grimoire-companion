@@ -2,21 +2,22 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Undo2 } from 'lucide-react';
 import rolesData from './official_roles.json';
 import { cn } from './utils/cn';
-import type { Role, Player as BasePlayer, PlayerPreferences } from './types';
+import type { Role, Player as BasePlayer, PlayerPreferences, PlacedReminder } from './types';
 import { TEAM_ORDER } from './types';
 import { assignCharacters } from './utils/assignment';
 import { getValidationSummary } from './utils/whaleBucketValidation';
-import PlayerDetailsModal from './components/PlayerDetailsModal';
-import WhaleBucketSetupPhase from './components/WhaleBucketSetupPhase';
-import WhaleBucketDraftPhase from './components/WhaleBucketDraftPhase';
-import GamePhase from './components/GamePhase';
-import PreferenceSelectionModal from './components/PreferenceSelectionModal';
-import ManualOverrideModal from './components/ManualOverrideModal';
+import PlayerDetailsModal from './components/shared/PlayerDetailsModal';
+import WhaleBucketSetupPhase from './components/whalebucket/SetupPhase';
+import WhaleBucketDraftPhase from './components/whalebucket/DraftPhase';
+import GamePhase from './components/shared/GamePhase';
+import WhaleBucketPlayerPreferenceModal from './components/whalebucket/PlayerPreferenceModal';
+import WhaleBucketDraftEditModal from './components/whalebucket/DraftEditModal';
 import { usePlayerDragAndDrop } from './hooks/usePlayerDragAndDrop';
 import { useGameSocket } from './hooks/useGameSocket';
-import PageLayout from './components/PageLayout';
-import DialogModal from './components/DialogModal';
-import RoomCodeModal from './components/RoomCodeModal';
+import { useStorytellerSync, getSyncParams } from './hooks/useStorytellerSync';
+import PageLayout from './components/shared/PageLayout';
+import DialogModal from './components/shared/DialogModal';
+import RoomCodeModal from './components/shared/RoomCodeModal';
 import { useDialog } from './hooks/useDialog';
 
 export type Player = Omit<BasePlayer, 'preferences'> & {
@@ -31,7 +32,23 @@ interface SetupProps {
 }
 
 export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
+  const [{ isSecondary, urlSync, urlGame }] = useState(() => getSyncParams());
+
+  const [showSyncModal, setShowSyncModal] = useState(false);
+
+  const [syncCode, setSyncCode] = useState<string>(() => {
+    if (isSecondary && urlSync) return urlSync.toUpperCase();
+
+    const saved = localStorage.getItem('whale-bucket-sync-code');
+    if (saved) return saved;
+    const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('whale-bucket-sync-code', newSync);
+    return newSync;
+  });
+
   const [gameCode, setGameCode] = useState<string>(() => {
+    if (isSecondary && urlGame) return urlGame.toUpperCase();
+
     const saved = localStorage.getItem('whale-bucket-game-code');
     if (saved) return saved;
     const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
@@ -115,7 +132,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   });
 
   // Traveler states
-  const [allowTravelers] = useState<boolean>(() => {
+  const [allowTravelers, setAllowTravelers] = useState<boolean>(() => {
     const saved = localStorage.getItem('whale-bucket-game');
     if (saved) {
       try {
@@ -195,6 +212,31 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     return [];
   });
   const [showRoomCodeModal, setShowRoomCodeModal] = useState(false);
+  const [remotePlayerIds, setRemotePlayerIds] = useState<Set<string>>(new Set());
+
+  const [reminderTokens, setReminderTokens] = useState<PlacedReminder[]>(() => {
+    const saved = localStorage.getItem('whale-bucket-game');
+    if (saved) {
+      try {
+        return JSON.parse(saved).reminderTokens || [];
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [];
+  });
+
+  const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem('whale-bucket-game');
+    if (saved) {
+      try {
+        return JSON.parse(saved).checkedItems || {};
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return {};
+  });
 
   const [newTravelerName, setNewTravelerName] = useState('');
   const [newTravelerRoleId, setNewTravelerRoleId] = useState('beggar');
@@ -225,7 +267,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
         sendMessageRef.current({
           type: 'setup_update',
           gameType: 'whale-bucket',
-          players: listToBroadcast,
+          players: listToBroadcast.map(({ notes, ...rest }) => rest),
           excludedRoleIds
         });
       }
@@ -233,8 +275,19 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   }, [excludedRoleIds]);
 
   // Preference modal states
-  const [activePrefModal, setActivePrefModal] = useState<{ playerId: string; team: Role['team'] } | null>(null);
-  const [prefSearchTerm, setPrefSearchTerm] = useState('');
+  const [rotationOffset, setRotationOffset] = useState<number>(() => {
+    const saved = localStorage.getItem('whalebucket-botc-game');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.rotationOffset || 0;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return 0;
+  });
+  const [activePreferencePlayerId, setActivePreferencePlayerId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [isSearchingRole, setIsSearchingRole] = useState(false);
   const [modalRoleSearch, setModalRoleSearch] = useState('');
@@ -252,7 +305,6 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     handleTouchStart,
     handleTouchMove,
     handleTouchEnd,
-    movePlayer,
   } = usePlayerDragAndDrop(players, setPlayers);
 
   const handleIncomingMessage = (data: unknown) => {
@@ -283,6 +335,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       }
 
       if (!payload.checkOnly) {
+        setRemotePlayerIds(prev => new Set([...prev, payload.id]));
         setPlayers(prev => {
           const exists = prev.some(p => p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id);
           if (exists) {
@@ -360,7 +413,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       if (phase === 'game' && sendMessageRef.current) {
         sendMessageRef.current({
           type: 'game_update',
-          players,
+          players: players.map(({ notes, ...rest }) => rest),
           timeOfDay,
           dayNumber
         });
@@ -368,7 +421,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     }
   };
 
-  const { sendMessage } = useGameSocket(gameCode, handleIncomingMessage);
+  const { sendMessage } = useGameSocket(!isSecondary ? gameCode : '', handleIncomingMessage);
   
   useEffect(() => {
     sendMessageRef.current = sendMessage;
@@ -376,32 +429,88 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   // Sync game state to players when in game phase
   useEffect(() => {
-    if (phase === 'game') {
+    if (!isSecondary && phase === 'game' && sendMessage) {
       sendMessage({
         type: 'game_update',
-        players,
+        players: players.map(({ notes, ...rest }) => rest),
         timeOfDay,
         dayNumber
       });
     }
-  }, [phase, players, timeOfDay, dayNumber, sendMessage]);
+  }, [phase, players, timeOfDay, dayNumber, sendMessage, isSecondary]);
 
   // Broadcast player list to players during setup or draft phases
   useEffect(() => {
-    if (phase === 'setup' || phase === 'draft') {
+    if (!isSecondary && (phase === 'setup' || phase === 'draft')) {
       const initialTimer = setTimeout(() => {
         broadcastSetupUpdate(players);
       }, 500);
       return () => clearTimeout(initialTimer);
     }
-  }, [phase, players, broadcastSetupUpdate]);
+  }, [phase, players, broadcastSetupUpdate, isSecondary]);
+
+  // Storyteller Sync channel (laptop <-> phone)
+  const syncState = useMemo(() => ({
+    players: phase === 'game' ? players.map(({ preferences, ...rest }) => rest) : players,
+    phase,
+    timeOfDay,
+    dayNumber,
+    allowTravelers,
+    isLilMonstaGame,
+    excludedRoleIds,
+    demonBluffs,
+    reminderTokens,
+    checkedItems,
+    rotationOffset,
+  }), [
+    players, phase, timeOfDay, dayNumber, allowTravelers, isLilMonstaGame, excludedRoleIds, demonBluffs, reminderTokens, checkedItems, rotationOffset
+  ]);
+
+  const handleApplySync = useCallback((incoming: typeof syncState) => {
+    const localStateStr = JSON.stringify(syncState);
+    const incomingStateStr = JSON.stringify(incoming);
+
+    if (localStateStr !== incomingStateStr) {
+      setPlayers((incoming.players || []) as Player[]);
+      setPhase(incoming.phase || 'setup');
+      setTimeOfDay(incoming.timeOfDay || 'night');
+      setDayNumber(incoming.dayNumber || 1);
+      setAllowTravelers(incoming.allowTravelers !== undefined ? incoming.allowTravelers : true);
+      setIsLilMonstaGame(incoming.isLilMonstaGame || false);
+      setExcludedRoleIds(incoming.excludedRoleIds || ['drunk', 'marionette', 'lunatic']);
+      setDemonBluffs(incoming.demonBluffs || []);
+      setReminderTokens(incoming.reminderTokens || []);
+      setCheckedItems(incoming.checkedItems || {});
+      setRotationOffset(incoming.rotationOffset ?? 0);
+    }
+  }, [syncState]);
+
+  useStorytellerSync({
+    isSecondary,
+    syncCode,
+    localState: syncState,
+    onApplySync: handleApplySync,
+  });
 
   // Save to localStorage
   useEffect(() => {
-    localStorage.setItem('whale-bucket-game', JSON.stringify({ players, phase, timeOfDay, dayNumber, allowTravelers, isLilMonstaGame, excludedRoleIds, gameLog, demonBluffs }));
-  }, [players, phase, timeOfDay, dayNumber, allowTravelers, isLilMonstaGame, excludedRoleIds, gameLog, demonBluffs]);
+    localStorage.setItem('whale-bucket-game', JSON.stringify({
+      players,
+      phase,
+      timeOfDay,
+      dayNumber,
+      allowTravelers,
+      isLilMonstaGame,
+      excludedRoleIds,
+      gameLog,
+      demonBluffs,
+      reminderTokens,
+      checkedItems,
+    }));
+  }, [players, phase, timeOfDay, dayNumber, allowTravelers, isLilMonstaGame, excludedRoleIds, gameLog, demonBluffs, reminderTokens, checkedItems]);
 
   const toggleTimeOfDay = () => {
+    setCheckedItems({});
     if (timeOfDay === 'night') {
       setTimeOfDay('day');
       addLogEntry(`Advanced to Day ${dayNumberRef.current}`, 'day', dayNumberRef.current);
@@ -448,23 +557,51 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   };
 
   const removePlayer = (id: string) => {
-    setPlayers(players.filter(p => p.id !== id));
+    const player = players.find(p => p.id === id);
+    if (!player) return;
+
+    const performRemoval = () => {
+      setPlayers(players.filter(p => p.id !== id));
+      if (remotePlayerIds.has(id)) {
+        setRemotePlayerIds(prev => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+        if (sendMessageRef.current) {
+          sendMessageRef.current({
+            type: 'booted',
+            playerId: id,
+          });
+        }
+      }
+    };
+
+    if (remotePlayerIds.has(id)) {
+      showConfirm(`Are you sure you want to remove the connected player "${player.name}"?`, performRemoval, 'Remove Player');
+    } else {
+      performRemoval();
+    }
   };
 
   const updatePlayerName = (id: string, name: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, name } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, name } : p));
   };
 
   const updatePlayerNotes = (id: string, notes: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, notes } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, notes } : p));
+  };
+
+  const updatePlayerPronouns = (id: string, pronouns: string) => {
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, pronouns } : p));
   };
 
   const updatePlayerRoles = (id: string, roleIds: string[]) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, roleIds } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, roleIds } : p));
   };
 
   const togglePreference = (playerId: string, team: Role['team'], roleId: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id !== playerId) return p;
       const current = p.preferences[team] || [];
       const newPrefs = current.includes(roleId) ? [] : [roleId];
@@ -480,7 +617,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   const autoFillPreferences = (playerId?: string) => {
     const allRoles = rolesData as Role[];
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (playerId !== undefined && p.id !== playerId) return p;
       const newPrefs = {
         townsfolk: p.preferences.townsfolk.length > 0 ? [...p.preferences.townsfolk] : [],
@@ -513,7 +650,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   const clearAllPreferences = () => {
     showConfirm('Clear preferences for all players?', () => {
-      setPlayers(players.map(p => ({
+      setPlayers(prev => prev.map(p => ({
         ...p,
         preferences: { townsfolk: [], outsider: [], minion: [], demon: [], traveler: [] }
       })));
@@ -572,6 +709,19 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   };
 
   const updatePlayerRole = (id: string, roleId: string) => {
+    const player = players.find(p => p.id === id);
+    const oldRole = player?.roleId ? (rolesData as Role[]).find(r => r.id === player.roleId) : undefined;
+    const defaultEvil = oldRole ? (oldRole.team === 'minion' || oldRole.team === 'demon') : false;
+    const currentAlignment = player 
+      ? (player.isEvil !== undefined 
+          ? player.isEvil 
+          : player.isTheLunatic 
+            ? false 
+            : player.isTheMarionette 
+              ? true 
+              : defaultEvil) 
+      : undefined;
+
     let newPlayers = players.map(p => {
       if (p.id === id) {
         const role = (rolesData as Role[]).find(r => r.id === roleId);
@@ -580,7 +730,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           ...p,
           roleId: roleId || undefined,
           assignedFromPref: isPref,
-          isEvil: undefined,
+          isEvil: phase === 'game' ? currentAlignment : undefined,
           isTheDrunk: false,
           isTheMarionette: false,
           isTheLunatic: false,
@@ -619,7 +769,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       const nextDead = !player.isDead;
       addLogEntry(nextDead ? `${player.name} died` : `${player.name} returned to life`);
     }
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const nextDead = !p.isDead;
         return {
@@ -637,11 +787,11 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     if (player) {
       addLogEntry(player.hasDeadVote ? `${player.name}'s ghost vote used` : `${player.name}'s ghost vote restored`);
     }
-    setPlayers(players.map(p => p.id === id ? { ...p, hasDeadVote: !p.hasDeadVote } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, hasDeadVote: !p.hasDeadVote } : p));
   };
 
   const togglePlayerEvil = (id: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const roleObj = (rolesData as Role[]).find(r => r.id === p.roleId);
         const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
@@ -653,15 +803,15 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   };
 
   const togglePlayerDrunkOrPoisoned = (id: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, isDrunkOrPoisoned: !p.isDrunkOrPoisoned } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, isDrunkOrPoisoned: !p.isDrunkOrPoisoned } : p));
   };
 
   const togglePlayerTheDrunk = (id: string) => {
-    setPlayers(players.map(p => p.id === id ? { ...p, isTheDrunk: !p.isTheDrunk, isTheMarionette: false, isTheLilMonsta: false } : p));
+    setPlayers(prev => prev.map(p => p.id === id ? { ...p, isTheDrunk: !p.isTheDrunk, isTheMarionette: false, isTheLilMonsta: false } : p));
   };
 
   const togglePlayerTheMarionette = (id: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const nextVal = !p.isTheMarionette;
         return {
@@ -677,7 +827,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   };
 
   const togglePlayerTheLunatic = (id: string) => {
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const nextVal = !p.isTheLunatic;
         return {
@@ -698,7 +848,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     if (isTurningOn) {
       setIsLilMonstaGame(true);
     }
-    setPlayers(players.map(p => {
+    setPlayers(prev => prev.map(p => {
       if (p.id === id) {
         const nextVal = !p.isTheLilMonsta;
         return {
@@ -741,10 +891,16 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       setTimeOfDay('night');
       setDayNumber(1);
       setIsLilMonstaGame(false);
+      setReminderTokens([]);
+      setCheckedItems({});
+      setRemotePlayerIds(new Set());
       localStorage.removeItem('whale-bucket-game');
       const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
       localStorage.setItem('whale-bucket-game-code', newCode);
+      const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+      localStorage.setItem('whale-bucket-sync-code', newSync);
       setGameCode(newCode);
+      setSyncCode(newSync);
       window.location.hash = '';
     }, 'Reset Game');
   };
@@ -771,7 +927,16 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   // Details Modal variables
   const modalPlayer = selectedPlayerId ? players.find(x => x.id === selectedPlayerId) : null;
-  const modalRoleObj = modalPlayer ? (rolesData as Role[]).find(r => r.id === modalPlayer.roleId) : undefined;
+  const modalRoleObj = modalPlayer ? (() => {
+    const actualRoleId = modalPlayer.isTheDrunk
+      ? 'drunk'
+      : modalPlayer.isTheMarionette
+        ? (modalPlayer.roleId || 'marionette')
+        : modalPlayer.isTheLunatic
+          ? (modalPlayer.roleId || 'lunatic')
+          : modalPlayer.roleId;
+    return (rolesData as Role[]).find(r => r.id === actualRoleId);
+  })() : undefined;
   const filteredModalRoles = (rolesData as Role[])
     .filter(r =>
       r.name.toLowerCase().includes(modalRoleSearch.toLowerCase()) ||
@@ -804,18 +969,33 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
             Whale Buffet
           </h1>
-          <div
-          onClick={() => setShowRoomCodeModal(true)}
-            className={cn(
-              "hidden md:flex cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none items-baseline gap-1",
-              isLightModeActive
-                ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
-                : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
-            )}
-            title="Click to copy join link"
-          >
-            Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
-          </div>
+          {phase !== 'game' ? (
+            <div
+              onClick={() => setShowRoomCodeModal(true)}
+              className={cn(
+                "hidden md:flex cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none items-baseline gap-1",
+                isLightModeActive
+                  ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
+              )}
+              title="Click to copy join link"
+            >
+              Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
+            </div>
+          ) : (
+            <div
+              onClick={() => setShowSyncModal(true)}
+              className={cn(
+                "hidden md:flex cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none items-baseline gap-1",
+                isLightModeActive
+                  ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
+              )}
+              title="Sync other device as secondary controller"
+            >
+              Sync Other Device
+            </div>
+          )}
         </div>
       }
       extraControls={
@@ -829,18 +1009,33 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
         </button>
       }
       headerExtra={
-        <div
-          onClick={() => setShowRoomCodeModal(true)}
-          className={cn(
-            "md:hidden cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none flex items-baseline gap-1",
-            isLightModeActive
-              ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
-              : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
-          )}
-          title="Click to copy join link"
-        >
-          Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
-        </div>
+        phase !== 'game' ? (
+          <div
+            onClick={() => setShowRoomCodeModal(true)}
+            className={cn(
+              "md:hidden cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none flex items-baseline gap-1",
+              isLightModeActive
+                ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
+            )}
+            title="Click to copy join link"
+          >
+            Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
+          </div>
+        ) : (
+          <div
+            onClick={() => setShowSyncModal(true)}
+            className={cn(
+              "md:hidden cursor-pointer text-xs font-bold px-2 py-0.5 rounded border transition-all duration-200 select-none flex items-baseline gap-1",
+              isLightModeActive
+                ? "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                : "bg-gray-900 border-gray-800 text-gray-300 hover:bg-gray-850"
+            )}
+            title="Sync other device as secondary controller"
+          >
+            Sync Other Device
+          </div>
+        )
       }
       contentClassName="px-4 pt-6 pb-4"
     >
@@ -862,19 +1057,15 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           handleTouchStart={handleTouchStart}
           handleTouchMove={handleTouchMove}
           handleTouchEnd={handleTouchEnd}
-          movePlayer={movePlayer}
           addPlayer={addPlayer}
-          removePlayer={removePlayer}
-          updatePlayerName={updatePlayerName}
-          autoFillPlayerPreferences={autoFillPlayerPreferences}
           autoFillAllPreferences={autoFillAllPreferences}
           clearAllPreferences={clearAllPreferences}
-          setActivePrefModal={setActivePrefModal}
-          setPrefSearchTerm={setPrefSearchTerm}
+          setActivePreferencePlayerId={setActivePreferencePlayerId}
           runAssignment={runAssignment}
           isLightModeActive={isLightModeActive}
           excludedRoleIds={excludedRoleIds}
           setExcludedRoleIds={setExcludedRoleIds}
+          remotePlayerIds={remotePlayerIds}
         />
       )}
 
@@ -887,10 +1078,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           onStartGame={handleStartGame}
           runAssignment={runAssignment}
           setActiveDraftPlayerId={setActiveDraftPlayerId}
-          togglePlayerTheDrunk={togglePlayerTheDrunk}
-          togglePlayerTheMarionette={togglePlayerTheMarionette}
-          togglePlayerTheLunatic={togglePlayerTheLunatic}
-          togglePlayerTheLilMonsta={togglePlayerTheLilMonsta}
+          remotePlayerIds={remotePlayerIds}
         />
       )}
 
@@ -953,33 +1141,46 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               sendMessageRef.current({ type: 'game_winner', team });
             }
           }}
+          reminderTokens={reminderTokens}
+          onSetReminderTokens={setReminderTokens}
+          checkedItems={checkedItems}
+          onSetCheckedItems={setCheckedItems}
+          rotationOffset={rotationOffset}
+          onRotationChange={setRotationOffset}
         />
       )}
 
-      {/* Preference Selection Modal */}
-      {activePrefModal && (
-        <PreferenceSelectionModal
-          activePrefModal={activePrefModal}
+      {/* Player Preference Modal (setup phase) */}
+      {activePreferencePlayerId && (
+        <WhaleBucketPlayerPreferenceModal
+          activePlayerId={activePreferencePlayerId}
           players={players}
-          prefSearchTerm={prefSearchTerm}
-          setPrefSearchTerm={setPrefSearchTerm}
-          togglePreference={togglePreference}
           setPlayers={setPlayers}
-          setActivePrefModal={setActivePrefModal}
+          allowTravelers={allowTravelers}
           excludedRoleIds={excludedRoleIds}
+          isLightModeActive={isLightModeActive}
+          updatePlayerName={updatePlayerName}
+          removePlayer={removePlayer}
+          togglePreference={togglePreference}
+          autoFillPlayerPreferences={autoFillPlayerPreferences}
+          onClose={() => setActivePreferencePlayerId(null)}
         />
       )}
 
-      {/* Manual Override Modal */}
+      {/* Draft Player Edit Modal */}
       {activeDraftPlayerId && (
-        <ManualOverrideModal
+        <WhaleBucketDraftEditModal
           activeDraftPlayerId={activeDraftPlayerId}
           players={players}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
           updatePlayerRole={updatePlayerRole}
-          setActiveDraftPlayerId={setActiveDraftPlayerId}
+          togglePlayerTheDrunk={togglePlayerTheDrunk}
+          togglePlayerTheMarionette={togglePlayerTheMarionette}
+          togglePlayerTheLunatic={togglePlayerTheLunatic}
+          togglePlayerTheLilMonsta={togglePlayerTheLilMonsta}
           isLightModeActive={isLightModeActive}
+          onClose={() => { setActiveDraftPlayerId(null); setSearchTerm(''); }}
         />
       )}
 
@@ -1000,6 +1201,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           onUpdateRole={updatePlayerRole}
           onUpdateRoles={updatePlayerRoles}
           onUpdateNotes={updatePlayerNotes}
+          onUpdatePronouns={updatePlayerPronouns}
           onToggleDead={togglePlayerDead}
           onToggleDeadVote={togglePlayerDeadVote}
           onToggleDrunkOrPoisoned={togglePlayerDrunkOrPoisoned}
@@ -1019,6 +1221,15 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
         joinUrl={`${window.location.origin}${window.location.pathname}#/join?code=${gameCode}`}
         onClose={() => setShowRoomCodeModal(false)}
         isLightModeActive={isLightModeActive}
+      />
+    )}
+    {showSyncModal && (
+      <RoomCodeModal
+        gameCode={syncCode}
+        joinUrl={`${window.location.origin}${window.location.pathname}#/whale-bucket?syncCode=${syncCode}&gameCode=${gameCode}`}
+        onClose={() => setShowSyncModal(false)}
+        isLightModeActive={isLightModeActive}
+        syncOnly={true}
       />
     )}
     </>
