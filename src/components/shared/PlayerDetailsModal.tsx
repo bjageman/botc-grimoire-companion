@@ -191,7 +191,7 @@ export default function PlayerDetailsModal({
               />
               {isSynced ? (
                 p.pronouns && (
-                  <p className={cn('text-sm font-medium mt-0', isLightModeActive ? 'text-gray-500' : 'text-gray-400')}>
+                  <p className={cn('text-sm font-medium mt-0 pb-0 -mb-5 pt-1 px-3', isLightModeActive ? 'text-gray-500' : 'text-gray-400')}>
                     {p.pronouns}
                   </p>
                 )
@@ -201,7 +201,7 @@ export default function PlayerDetailsModal({
                   value={p.pronouns || ''}
                   onChange={(e) => onUpdatePronouns(p.id, e.target.value)}
                   className={cn(
-                    'mt-1 rounded px-1.5 py-0.5 text-xs font-medium border focus:outline-none focus:border-clocktower-blood transition-colors cursor-pointer',
+                    'rounded px-1.5 py-1 mt-1.5 text-sm font-medium border focus:outline-none focus:border-clocktower-blood transition-colors cursor-pointer',
                     isLightModeActive
                       ? 'bg-white border-gray-300 text-gray-600'
                       : 'bg-gray-800/50 border-gray-700 text-gray-400'
@@ -225,7 +225,7 @@ export default function PlayerDetailsModal({
                   onBlur={(e) => { if (onLogEvent && e.target.value.trim() && e.target.value !== originalNotes.current) onLogEvent(`Note — ${p.name}: ${e.target.value}`); }}
                   onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
                   className={cn(
-                    'w-full mt-1.5 rounded px-2 py-1 text-xs border focus:outline-none focus:border-clocktower-blood/60 transition-colors',
+                    'w-full mt-1.5 rounded px-2 py-1.5 -mb-2 text-xs border focus:outline-none focus:border-clocktower-blood/60 transition-colors',
                     isLightModeActive
                       ? 'bg-gray-50 border-gray-200 text-gray-700 placeholder-gray-400'
                       : 'bg-gray-800/50 border-gray-700 text-gray-300 placeholder-gray-500'
