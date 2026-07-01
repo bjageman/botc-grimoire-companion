@@ -24,7 +24,7 @@ jobs:
             # Move the local branch pointer to match origin without touching the
             # working tree, since the clone below only sees this dir's local
             # branches, not its origin/* tracking refs.
-            git branch -f main origin/main
+            git update-ref refs/heads/main origin/main
 
             # Build the new image in a clean temporary directory to prevent local changes from blocking checkout
             rm -rf /tmp/botc-grimoire-companion-prod-build
