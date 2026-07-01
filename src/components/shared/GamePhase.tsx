@@ -143,11 +143,12 @@ export default function GamePhase({
 
   const bluffCandidates = useMemo(() => {
     const base = customScriptRoles || (rolesData as Role[]);
+    const goodRoles = base.filter(r => r.team === 'townsfolk' || r.team === 'outsider');
     if (showAllBluffCandidates) {
-      return [...base].sort((a, b) => a.name.localeCompare(b.name));
+      return [...goodRoles].sort((a, b) => a.name.localeCompare(b.name));
     }
-    return base
-      .filter(r => (r.team === 'townsfolk' || r.team === 'outsider') && !assignedRoleIds.has(r.id))
+    return goodRoles
+      .filter(r => !assignedRoleIds.has(r.id))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [customScriptRoles, assignedRoleIds, showAllBluffCandidates]);
 
@@ -380,7 +381,7 @@ export default function GamePhase({
                 onChange={e => setShowAllBluffCandidates(e.target.checked)}
                 className="accent-clocktower-blood"
               />
-              Show all characters on script
+              Lunatic Mode
             </label>
           </div>
         )}
