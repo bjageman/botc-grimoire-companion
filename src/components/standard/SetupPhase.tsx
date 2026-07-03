@@ -25,6 +25,8 @@ interface StandardSetupPhaseProps {
   clearCustomScript: () => void;
   randomlyAssignRoles: () => void;
   randomlyAssignWithRoles: (roles: Role[]) => void;
+  clearAllRoles: () => void;
+  resetGame: () => void;
   scriptRoles: Role[];
   setActivePlayerId: (id: string | null) => void;
   setSearchTerm: (term: string) => void;
@@ -64,6 +66,8 @@ export default function StandardSetupPhase({
   clearCustomScript,
   randomlyAssignRoles,
   randomlyAssignWithRoles,
+  clearAllRoles,
+  resetGame,
   scriptRoles,
   setActivePlayerId,
   setSearchTerm,
@@ -227,7 +231,26 @@ export default function StandardSetupPhase({
       {/* Section B: Players & Roles list */}
       <div className="md:col-start-1 md:row-start-1 md:row-span-2 space-y-6 w-full">
         <section>
-          <h2 className="font-display text-lg font-bold tracking-wider uppercase text-gray-300 mb-4">Setup ({players.length} Players)</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-display text-lg font-bold tracking-wider uppercase text-gray-300">Setup ({players.length} Players)</h2>
+            <div className="flex gap-2">
+              {players.length > 0 && (
+                <button
+                  onClick={clearAllRoles}
+                  className="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700 transition-all"
+                >
+                  Clear All
+                </button>
+              )}
+              <button
+                id="setup-reset-button"
+                onClick={resetGame}
+                className="text-[10px] bg-clocktower-blood/10 text-red-400 border border-clocktower-blood/30 px-2 py-1 rounded hover:bg-clocktower-blood/25 transition-all"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
 
           <div className="flex gap-2 mb-4">
             <input

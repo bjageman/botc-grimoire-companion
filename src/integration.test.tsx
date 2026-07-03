@@ -218,6 +218,37 @@ describe('Storyteller Reset Integration', () => {
     joinPage.unmount();
   });
 
+  it('the setup-header Reset button opens the same reset choice modal', async () => {
+    // Storyteller in setup phase with one connected player.
+    localStorage.setItem('standard-botc-game-code', 'STUP');
+    localStorage.setItem('standard-botc-sync-code', 'STUS');
+    localStorage.setItem('standard-botc-game', JSON.stringify({
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }],
+      phase: 'setup',
+    }));
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    sessionStorage.setItem('joined-code', 'STUP');
+    sessionStorage.setItem('joined-name', 'Alice');
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
+
+    // The header line reset button lives in the setup phase.
+    const setupResetBtn = storyteller.container.querySelector('#setup-reset-button');
+    expect(setupResetBtn).not.toBeNull();
+    fireEvent.click(setupResetBtn!);
+
+    expect(storyteller.container.querySelector('#reset-game-modal')).not.toBeNull();
+    expect(within(storyteller.container).getByText('Keep Players')).toBeInTheDocument();
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
+
   it('Keep Players resets to setup and sends the revealed player back to the waiting room', async () => {
     const { storyteller, joinPage } = await renderGameWithRevealedPlayer();
     expect(joinPage.queryAllByText('Washerwoman').length).toBeGreaterThan(0);

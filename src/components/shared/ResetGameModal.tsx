@@ -48,7 +48,7 @@ export default function ResetGameModal({
             className="w-full py-2.5 px-3 rounded-md text-left bg-clocktower-townsfolk hover:bg-blue-600 text-white transition-colors"
           >
             <span className="block font-bold text-sm">Keep Players</span>
-            <span className="block text-[11px] opacity-80 font-normal">Clear characters, send everyone back to the waiting room</span>
+            <span className="block text-[11px] opacity-80 font-normal">Clear characters, send everyone back to setup</span>
           </button>
           <button
             id="reset-disconnect-button"
@@ -57,7 +57,7 @@ export default function ResetGameModal({
             className="w-full py-2.5 px-3 rounded-md text-left bg-clocktower-blood hover:bg-red-800 text-white transition-colors"
           >
             <span className="block font-bold text-sm">Disconnect</span>
-            <span className="block text-[11px] opacity-80 font-normal">Remove everyone and return to the Main Menu</span>
+            <span className="block text-[11px] opacity-80 font-normal">Disconnect and return to the Main Menu</span>
           </button>
           <button
             id="reset-cancel-button"
