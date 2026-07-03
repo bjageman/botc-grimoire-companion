@@ -29,6 +29,7 @@ interface WhaleBucketSetupPhaseProps {
   addPlayer: () => void;
   autoFillAllPreferences: () => void;
   clearAllPreferences: () => void;
+  resetGame: () => void;
   setActivePreferencePlayerId: (id: string | null) => void;
   runAssignment: () => void;
   isLightModeActive: boolean;
@@ -56,6 +57,7 @@ export default function WhaleBucketSetupPhase({
   addPlayer,
   autoFillAllPreferences,
   clearAllPreferences,
+  resetGame,
   setActivePreferencePlayerId,
   runAssignment,
   isLightModeActive,
@@ -93,22 +95,31 @@ export default function WhaleBucketSetupPhase({
         <section>
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-display text-base font-bold tracking-wider uppercase text-gray-300">Setup ({players.length} Players)</h2>
-            {players.length > 0 && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={autoFillAllPreferences} 
-                  className="text-[10px] bg-clocktower-townsfolk/10 text-clocktower-townsfolk border border-clocktower-townsfolk/20 px-2 py-1 rounded hover:bg-clocktower-townsfolk/25 transition-all"
-                >
-                  Auto-Fill All
-                </button>
-                <button 
-                  onClick={clearAllPreferences} 
-                  className="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700 transition-all"
-                >
-                  Clear All
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              {players.length > 0 && (
+                <>
+                  <button
+                    onClick={autoFillAllPreferences}
+                    className="text-[10px] bg-clocktower-townsfolk/10 text-clocktower-townsfolk border border-clocktower-townsfolk/20 px-2 py-1 rounded hover:bg-clocktower-townsfolk/25 transition-all"
+                  >
+                    Auto-Fill All
+                  </button>
+                  <button
+                    onClick={clearAllPreferences}
+                    className="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700 transition-all"
+                  >
+                    Clear All
+                  </button>
+                </>
+              )}
+              <button
+                id="setup-reset-button"
+                onClick={resetGame}
+                className="text-[10px] bg-clocktower-blood/10 text-red-400 border border-clocktower-blood/30 px-2 py-1 rounded hover:bg-clocktower-blood/25 transition-all"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-2 mb-4">

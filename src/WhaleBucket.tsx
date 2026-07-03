@@ -975,6 +975,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           addPlayer={addPlayer}
           autoFillAllPreferences={autoFillAllPreferences}
           clearAllPreferences={clearAllPreferences}
+          resetGame={resetGame}
           setActivePreferencePlayerId={setActivePreferencePlayerId}
           runAssignment={runAssignment}
           isLightModeActive={isLightModeActive}
