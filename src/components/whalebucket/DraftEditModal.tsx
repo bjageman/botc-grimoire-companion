@@ -63,10 +63,10 @@ export default function WhaleBucketDraftEditModal({
   const isLunaticSelectedElsewhere = players.some(pl => pl.id !== player.id && pl.isTheLunatic);
 
   const preferredIds = [
-    ...(player.preferences.townsfolk || []),
-    ...(player.preferences.outsider || []),
-    ...(player.preferences.minion || []),
-    ...(player.preferences.demon || []),
+    ...(player.preferences?.townsfolk || []),
+    ...(player.preferences?.outsider || []),
+    ...(player.preferences?.minion || []),
+    ...(player.preferences?.demon || []),
   ];
 
   const filteredRoles = (rolesData as Role[]).filter(r =>

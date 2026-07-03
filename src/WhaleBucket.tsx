@@ -114,8 +114,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     players.forEach(p => {
       const prefParts: string[] = [];
       (['townsfolk', 'outsider', 'minion', 'demon'] as const).forEach(team => {
-        const prefs = p.preferences[team];
-        if (prefs.length > 0) {
+        const prefs = p.preferences?.[team];
+        if (prefs && prefs.length > 0) {
           const names = prefs.map(id => roleMap.get(id)?.name ?? id).join(', ');
           prefParts.push(`${teamLabels[team]}: ${names}`);
         }
@@ -965,7 +965,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           >
             Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
           </HeaderCodeBadge>
-        ) : (
+        ) : !isSecondary ? (
           <HeaderCodeBadge
             mobile
             onClick={() => setShowSyncModal(true)}
@@ -974,7 +974,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           >
             Sync Other Device
           </HeaderCodeBadge>
-        )
+        ) : null
       }
       contentClassName="px-4 pt-6 pb-4"
     >
