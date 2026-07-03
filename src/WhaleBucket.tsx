@@ -801,6 +801,8 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
       isTheLilMonsta: false,
       isEvil: undefined,
       notes: undefined,
+      // Wipe preferences so everyone re-picks fresh for the next round.
+      preferences: { townsfolk: [], outsider: [], minion: [], demon: [], traveler: [] },
     }));
     setPlayers(clearedPlayers);
     setPhase('setup');
@@ -816,7 +818,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
     // Broadcast immediately (no debounce): the explicit reset command first,
     // then a setup_update carrying the cleared roster as a backup that pulls
-    // any player who missed the command back to the waiting room.
+    // any player who missed the command back to the preferences picker.
     if (sendMessageRef.current) {
       sendMessageRef.current({ type: 'game_reset', gameType: 'whale-bucket' });
       sendMessageRef.current({

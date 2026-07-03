@@ -35,10 +35,17 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     return newId;
   });
 
+  // A Whale Bucket player who reset from the game tracker is routed here as
+  // `#/join?returnTo=preferences` — land them straight on the (fresh) picker.
+  const [returnToPrefs] = useState(() => {
+    const params = new URLSearchParams(window.location.hash.includes('?') ? window.location.hash.split('?')[1] : '');
+    return params.get('returnTo') === 'preferences';
+  });
+
   const [state, setState] = useState<'join' | 'checking' | 'preferences' | 'waiting' | 'revealed' | 'tracker'>(() => {
     const savedCode = sessionStorage.getItem('joined-code');
     const savedName = sessionStorage.getItem('joined-name');
-    if (savedCode && savedName) return 'waiting';
+    if (savedCode && savedName) return returnToPrefs ? 'preferences' : 'waiting';
     return 'join';
   });
 
@@ -50,7 +57,15 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     stateRef.current = state;
   }, [state]);
 
-  const [gameType, setGameType] = useState<'standard' | 'whale-bucket'>('standard');
+  // Strip the one-shot ?returnTo param so a later refresh doesn't force the
+  // player back onto the preferences screen after they've moved on.
+  useEffect(() => {
+    if (returnToPrefs) {
+      window.history.replaceState(null, '', '#/join');
+    }
+  }, [returnToPrefs]);
+
+  const [gameType, setGameType] = useState<'standard' | 'whale-bucket'>(() => returnToPrefs ? 'whale-bucket' : 'standard');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [assignedRole, setAssignedRole] = useState<Role | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -109,16 +124,24 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     customScriptRoles?: Role[];
   }
 
-  // Return this player to the waiting room after the storyteller resets the
-  // game but keeps everyone connected. Unconditional by design: it's a direct
+  // Send this player back to the lobby after the storyteller resets the game
+  // but keeps everyone connected. Unconditional by design: it's a direct
   // command, not something inferred from the current UI state, which is what
-  // makes it reliable.
-  const returnToLobby = () => {
+  // makes it reliable. Whale Bucket players return to the preferences picker
+  // (with a fresh, empty selection); Standard players return to the waiting
+  // room.
+  const returnToLobby = (resetGameType: 'standard' | 'whale-bucket' = 'standard') => {
     setAssignedRole(null);
     setRevealed(false);
-    setState('waiting');
     sessionStorage.setItem('joined-code', code);
     sessionStorage.setItem('joined-name', name);
+    if (resetGameType === 'whale-bucket') {
+      setPrefs({ townsfolk: [], outsider: [], minion: [], demon: [] });
+      setGameType('whale-bucket');
+      setState('preferences');
+    } else {
+      setState('waiting');
+    }
   };
 
   const handleMessage = (data: unknown) => {
@@ -126,7 +149,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     if (payload.type === 'game_reset') {
       // Explicit "storyteller reset, stay connected" signal. Always obey it,
       // regardless of what screen this player is currently on.
-      returnToLobby();
+      returnToLobby(payload.gameType);
       return;
     }
     if (payload.type === 'setup_update') {
@@ -139,19 +162,17 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         setGameType(payload.gameType);
 
         if (stateRef.current === 'checking') {
-          if (payload.gameType === 'whale-bucket') {
-            setState('preferences');
-          } else {
-            setState('waiting');
-            sessionStorage.setItem('joined-code', code);
-            sessionStorage.setItem('joined-name', name);
-          }
+          // Persist the session as soon as we're in the room (both modes) so a
+          // later game tracker / reset can reliably resume the join.
+          sessionStorage.setItem('joined-code', code);
+          sessionStorage.setItem('joined-name', name);
+          setState(payload.gameType === 'whale-bucket' ? 'preferences' : 'waiting');
         } else if (stateRef.current === 'revealed') {
           // The storyteller is back in setup while this player still shows a
-          // character — they reset the game. Fall back to the waiting room.
-          // This backs up the explicit `game_reset` message above in case that
-          // one wasn't received (e.g. the socket was momentarily down).
-          returnToLobby();
+          // character — they reset the game. Fall back to the lobby. This
+          // backs up the explicit `game_reset` message above in case that one
+          // wasn't received (e.g. the socket was momentarily down).
+          returnToLobby(payload.gameType);
         }
       }
 
@@ -175,13 +196,9 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         setGameType(payload.gameType);
 
         if (stateRef.current === 'checking') {
-          if (payload.gameType === 'whale-bucket') {
-            setState('preferences');
-          } else {
-            setState('waiting');
-            sessionStorage.setItem('joined-code', code);
-            sessionStorage.setItem('joined-name', name);
-          }
+          sessionStorage.setItem('joined-code', code);
+          sessionStorage.setItem('joined-name', name);
+          setState(payload.gameType === 'whale-bucket' ? 'preferences' : 'waiting');
         }
       }
 
@@ -237,10 +254,12 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
 
   const { isConnected, sendMessage } = useGameSocket(code, handleMessage);
 
-  // Keep player entry in the storyteller list synchronized on connection/reconnection
+  // Keep player entry in the storyteller list synchronized on connection/reconnection.
+  // 'preferences' is included so a Whale Bucket player who lands on the picker
+  // after a reset re-announces and receives the current excludedRoleIds/script.
   useEffect(() => {
     if (isConnected && code && name) {
-      if (state === 'waiting' || state === 'revealed' || state === 'tracker') {
+      if (state === 'waiting' || state === 'revealed' || state === 'tracker' || state === 'preferences') {
         sendMessage({
           type: 'player_join',
           name: name,

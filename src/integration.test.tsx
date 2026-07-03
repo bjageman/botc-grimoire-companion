@@ -346,6 +346,80 @@ describe('Storyteller Reset Integration', () => {
     tracker.unmount();
   });
 
+  it('Whale Bucket: game_reset sends a revealed player to the (empty) preferences picker', async () => {
+    const gameCode = 'WBRS';
+    sessionStorage.setItem('joined-code', gameCode);
+    sessionStorage.setItem('joined-name', 'Zoe');
+    window.location.hash = '#/join';
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const deliver = (payload: Record<string, unknown>) => act(() => {
+      activeSubscriptions
+        .filter(s => s.gameCode.toLowerCase() === gameCode.toLowerCase())
+        .forEach(s => s.onMessage(payload));
+    });
+
+    // Reveal Zoe, then the storyteller does a keep-connected reset.
+    deliver({
+      type: 'game_update',
+      players: [{ id: 'p1', name: 'Zoe', isDead: false, roleId: 'washerwoman' }],
+      timeOfDay: 'night',
+      dayNumber: 1,
+      scriptName: 'All Roles',
+    });
+    expect(joinPage.queryAllByText('Washerwoman').length).toBeGreaterThan(0);
+
+    deliver({ type: 'game_reset', gameType: 'whale-bucket' });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    });
+
+    // Back on the preferences picker, no longer showing a character.
+    expect(joinPage.getByText('Submit Your Preferences')).toBeInTheDocument();
+    expect(joinPage.queryAllByText('Washerwoman').length).toBe(0);
+
+    joinPage.unmount();
+  });
+
+  it('Whale Bucket: a joined game tracker routes to the preferences picker on reset', async () => {
+    const gameCode = 'WBTR';
+    sessionStorage.setItem('joined-code', gameCode);
+    sessionStorage.setItem('joined-name', 'Zoe');
+    window.location.hash = '#/tracker';
+    const tracker = render(<PlayerTracker theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    act(() => {
+      activeSubscriptions
+        .filter(s => s.gameCode.toLowerCase() === gameCode.toLowerCase())
+        .forEach(s => s.onMessage({ type: 'game_reset', gameType: 'whale-bucket' }));
+    });
+
+    expect(window.location.hash).toBe('#/join?returnTo=preferences');
+
+    tracker.unmount();
+  });
+
+  it('JoinPage mounted with ?returnTo=preferences lands directly on the picker', async () => {
+    sessionStorage.setItem('joined-code', 'WBLD');
+    sessionStorage.setItem('joined-name', 'Zoe');
+    window.location.hash = '#/join?returnTo=preferences';
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    expect(joinPage.getByText('Submit Your Preferences')).toBeInTheDocument();
+    // The one-shot param is stripped so a refresh won't re-force the picker.
+    expect(window.location.hash).toBe('#/join');
+
+    joinPage.unmount();
+  });
+
   it('Disconnect from the reset modal fully ends the session', async () => {
     const { storyteller, joinPage } = await renderGameWithRevealedPlayer();
 
