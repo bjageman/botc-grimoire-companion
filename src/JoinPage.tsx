@@ -42,6 +42,14 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     return 'join';
   });
 
+  // Mirror `state` in a ref so the socket message handler always reads the
+  // latest committed value rather than a stale closure — realtime messages can
+  // arrive between a render and the effect that re-binds the handler.
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
   const [gameType, setGameType] = useState<'standard' | 'whale-bucket'>('standard');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [assignedRole, setAssignedRole] = useState<Role | null>(null);
@@ -101,19 +109,36 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     customScriptRoles?: Role[];
   }
 
+  // Return this player to the waiting room after the storyteller resets the
+  // game but keeps everyone connected. Unconditional by design: it's a direct
+  // command, not something inferred from the current UI state, which is what
+  // makes it reliable.
+  const returnToLobby = () => {
+    setAssignedRole(null);
+    setRevealed(false);
+    setState('waiting');
+    sessionStorage.setItem('joined-code', code);
+    sessionStorage.setItem('joined-name', name);
+  };
+
   const handleMessage = (data: unknown) => {
     const payload = data as GamePayload;
+    if (payload.type === 'game_reset') {
+      // Explicit "storyteller reset, stay connected" signal. Always obey it,
+      // regardless of what screen this player is currently on.
+      returnToLobby();
+      return;
+    }
     if (payload.type === 'setup_update') {
       const me = payload.players?.find(
         (pl) => pl.name.trim().toLowerCase() === name.trim().toLowerCase() || pl.id === playerId
       );
-
       if (me) {
         if (joinRetryIntervalRef.current) clearInterval(joinRetryIntervalRef.current);
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         setGameType(payload.gameType);
 
-        if (state === 'checking') {
+        if (stateRef.current === 'checking') {
           if (payload.gameType === 'whale-bucket') {
             setState('preferences');
           } else {
@@ -121,6 +146,12 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
             sessionStorage.setItem('joined-code', code);
             sessionStorage.setItem('joined-name', name);
           }
+        } else if (stateRef.current === 'revealed') {
+          // The storyteller is back in setup while this player still shows a
+          // character — they reset the game. Fall back to the waiting room.
+          // This backs up the explicit `game_reset` message above in case that
+          // one wasn't received (e.g. the socket was momentarily down).
+          returnToLobby();
         }
       }
 
@@ -134,7 +165,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         setCustomScriptRoles(payload.customScriptRoles);
       }
 
-      if (state === 'waiting' || state === 'preferences' || state === 'checking') {
+      if (stateRef.current === 'waiting' || stateRef.current === 'preferences' || stateRef.current === 'checking' || stateRef.current === 'revealed') {
         setPlayers(payload.players || []);
       }
     } else if (payload.type === 'code_valid') {
@@ -143,7 +174,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         setGameType(payload.gameType);
 
-        if (state === 'checking') {
+        if (stateRef.current === 'checking') {
           if (payload.gameType === 'whale-bucket') {
             setState('preferences');
           } else {
@@ -181,7 +212,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
             const rObj = (rolesData as Role[]).find(r => r.id === me.roleId);
             if (rObj) {
               setAssignedRole(rObj);
-              if (state === 'waiting' || state === 'preferences') {
+              if (stateRef.current === 'waiting' || stateRef.current === 'preferences') {
                 setState('revealed');
               }
             }

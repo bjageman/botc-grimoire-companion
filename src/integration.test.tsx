@@ -165,6 +165,150 @@ describe('Storyteller Reset Integration', () => {
     unmountStoryteller();
     unmountJoinPage();
   });
+
+  // Renders a storyteller mid-game with one revealed remote player (Alice),
+  // returning handles plus Alice's current JoinPage screen state.
+  async function renderGameWithRevealedPlayer() {
+    localStorage.setItem('standard-botc-game-code', 'RKMP');
+    localStorage.setItem('standard-botc-sync-code', 'RSNC');
+    localStorage.setItem('standard-botc-game', JSON.stringify({
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }],
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    }));
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+    const gameCode = localStorage.getItem('standard-botc-game-code')!;
+
+    sessionStorage.setItem('joined-code', gameCode);
+    sessionStorage.setItem('joined-name', 'Alice');
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    // Let the join round-trip complete: Alice announces herself, the
+    // storyteller registers her + broadcasts the game, Alice reveals.
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    });
+
+    return { storyteller, joinPage, gameCode };
+  }
+
+  it('opens the reset choice modal (not a plain confirm) when a player is connected', async () => {
+    const { storyteller, joinPage } = await renderGameWithRevealedPlayer();
+
+    // Alice should be revealed as her character
+    expect(joinPage.queryAllByText('Washerwoman').length).toBeGreaterThan(0);
+
+    fireEvent.click(storyteller.container.querySelector('#reset-game-button')!);
+
+    expect(storyteller.container.querySelector('#reset-game-modal')).not.toBeNull();
+    expect(within(storyteller.container).getByText('Keep Players')).toBeInTheDocument();
+    expect(within(storyteller.container).getByText('Disconnect')).toBeInTheDocument();
+    expect(within(storyteller.container).getByText('Cancel')).toBeInTheDocument();
+
+    // Cancel closes it and sends nothing
+    fireEvent.click(within(storyteller.container).getByText('Cancel'));
+    expect(storyteller.container.querySelector('#reset-game-modal')).toBeNull();
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'game_reset')).toBe(false);
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'storyteller_quit')).toBe(false);
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
+
+  it('Keep Players resets to setup and sends the revealed player back to the waiting room', async () => {
+    const { storyteller, joinPage } = await renderGameWithRevealedPlayer();
+    expect(joinPage.queryAllByText('Washerwoman').length).toBeGreaterThan(0);
+
+    fireEvent.click(storyteller.container.querySelector('#reset-game-button')!);
+    await act(async () => {
+      fireEvent.click(within(storyteller.container).getByText('Keep Players'));
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    // Storyteller emitted the explicit reset command, kept the session alive
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'game_reset')).toBe(true);
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'storyteller_quit')).toBe(false);
+
+    // Storyteller is back on the setup screen with the player retained
+    expect(within(storyteller.container).getByText(/Setup \(1 Players\)/i)).toBeInTheDocument();
+
+    // Alice is back in the waiting room, no longer showing a character
+    expect(joinPage.container.querySelector('#waiting-screen')).not.toBeNull();
+    expect(joinPage.queryAllByText('Washerwoman').length).toBe(0);
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
+
+  it('self-heals a revealed player back to the waiting room from a setup_update alone (game_reset missed)', async () => {
+    // No storyteller here — drive the JoinPage directly so we isolate the
+    // self-heal logic: a revealed player who never received `game_reset` but
+    // later gets a setup_update (their role cleared) must fall back to waiting.
+    const gameCode = 'SHLF';
+    sessionStorage.setItem('joined-code', gameCode);
+    sessionStorage.setItem('joined-name', 'Alice');
+    window.location.hash = '#/join';
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    const deliver = (payload: Record<string, unknown>) => act(() => {
+      activeSubscriptions
+        .filter(s => s.gameCode.toLowerCase() === gameCode.toLowerCase())
+        .forEach(s => s.onMessage(payload));
+    });
+
+    // Reveal Alice via a game_update carrying her role.
+    deliver({
+      type: 'game_update',
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }],
+      timeOfDay: 'night',
+      dayNumber: 1,
+      scriptName: 'All Roles',
+    });
+    expect(joinPage.queryAllByText('Washerwoman').length).toBeGreaterThan(0);
+
+    // Now the storyteller reset but Alice missed `game_reset`; only a
+    // setup_update (role cleared) reaches her.
+    deliver({
+      type: 'setup_update',
+      gameType: 'standard',
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: '' }],
+      scriptName: 'All Roles',
+      scriptAuthor: '',
+      customScriptRoles: null,
+    });
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    expect(joinPage.container.querySelector('#waiting-screen')).not.toBeNull();
+    expect(joinPage.queryAllByText('Washerwoman').length).toBe(0);
+
+    joinPage.unmount();
+  });
+
+  it('Disconnect from the reset modal fully ends the session', async () => {
+    const { storyteller, joinPage } = await renderGameWithRevealedPlayer();
+
+    fireEvent.click(storyteller.container.querySelector('#reset-game-button')!);
+    await act(async () => {
+      fireEvent.click(within(storyteller.container).getByText('Disconnect'));
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'storyteller_quit')).toBe(true);
+    expect(window.location.hash).toBe('');
+    expect(joinPage.getByText('The Storyteller has quit the session.')).toBeInTheDocument();
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
 });
 
 // ---------------------------------------------------------------------------
