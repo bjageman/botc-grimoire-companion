@@ -844,6 +844,15 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   const isLightModeActive = theme === 'light';
   const { dialogProps, showAlert, showConfirm } = useDialog();
 
+  const confirmDisconnect = useCallback(() => {
+    showConfirm(
+      "Disconnect secondary device? This will stop syncing with the primary grimoire.",
+      () => {
+        window.location.hash = '#/host';
+      }
+    );
+  }, [showConfirm]);
+
   // Modal logic details
   const modalPlayer = selectedPlayerId ? players.find(x => x.id === selectedPlayerId) : null;
   const modalRoleObj = modalPlayer ? (() => {
@@ -886,14 +895,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         phase !== 'setup'
           ? () => setPhase('setup')
           : isSecondary
-            ? () => {
-                showConfirm(
-                  "Disconnect secondary device? This will stop syncing with the primary grimoire.",
-                  () => {
-                    window.location.hash = '#/host';
-                  }
-                );
-              }
+            ? confirmDisconnect
             : remotePlayerIds.size > 0
               // Synced with players: don't silently abandon them by returning to
               // the Host menu — surface the reset/disconnect choice first.
@@ -905,7 +907,15 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
             Standard
           </h1>
-          {phase === 'setup' ? (
+          {isSecondary ? (
+            <HeaderCodeBadge
+              onClick={confirmDisconnect}
+              title="Click to disconnect secondary storyteller device"
+              isLightModeActive={isLightModeActive}
+            >
+              Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
+            </HeaderCodeBadge>
+          ) : phase === 'setup' ? (
             <HeaderCodeBadge
               onClick={() => setShowRoomCodeModal(true)}
               title="Click to share room"
@@ -913,7 +923,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
             >
               Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
             </HeaderCodeBadge>
-          ) : !isSecondary ? (
+          ) : (
             <HeaderCodeBadge
               onClick={() => setShowSyncModal(true)}
               title="Sync other device as secondary controller"
@@ -921,7 +931,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
             >
               Sync Other Device
             </HeaderCodeBadge>
-          ) : null}
+          )}
         </div>
       }
       extraControls={
@@ -940,7 +950,16 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         </button>
       }
       headerExtra={
-        phase === 'setup' ? (
+        isSecondary ? (
+          <HeaderCodeBadge
+            mobile
+            onClick={confirmDisconnect}
+            title="Click to disconnect secondary storyteller device"
+            isLightModeActive={isLightModeActive}
+          >
+            Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
+          </HeaderCodeBadge>
+        ) : phase === 'setup' ? (
           <HeaderCodeBadge
             mobile
             onClick={() => setShowRoomCodeModal(true)}
@@ -949,7 +968,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           >
             Room: <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
           </HeaderCodeBadge>
-        ) : !isSecondary ? (
+        ) : (
           <HeaderCodeBadge
             mobile
             onClick={() => setShowSyncModal(true)}
@@ -958,7 +977,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           >
             Sync Other Device
           </HeaderCodeBadge>
-        ) : null
+        )
       }
       contentClassName="px-4 pt-6 pb-4"
     >
