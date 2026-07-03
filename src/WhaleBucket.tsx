@@ -220,6 +220,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               if (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id) {
                 return {
                   ...p,
+                  id: payload.id,
                   preferences: payload.preferences || p.preferences,
                   pronouns: payload.pronouns,
                 };
@@ -256,6 +257,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
             if (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id) {
               return {
                 ...p,
+                id: payload.id,
                 preferences: payload.preferences || p.preferences,
                 pronouns: payload.pronouns,
               };

@@ -295,7 +295,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           if (exists) {
             return prev.map(p =>
               (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id)
-                ? { ...p, pronouns: payload.pronouns }
+                ? { ...p, id: payload.id, pronouns: payload.pronouns }
                 : p
             );
           }
@@ -316,7 +316,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         const updatedPlayers = isExistingPlayer
           ? players.map(p =>
               (p.name.trim().toLowerCase() === payload.name.trim().toLowerCase() || p.id === payload.id)
-                ? { ...p, pronouns: payload.pronouns }
+                ? { ...p, id: payload.id, pronouns: payload.pronouns }
                 : p
             )
           : (payload.checkOnly ? players : [
