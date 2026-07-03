@@ -47,6 +47,7 @@ interface StandardSetupPhaseProps {
   handleTouchEnd: () => void;
   validationSummary: ValidationSummary | null;
   isLightModeActive: boolean;
+  resetGame: () => void;
 }
 
 export default function StandardSetupPhase({
@@ -86,6 +87,7 @@ export default function StandardSetupPhase({
   remotePlayerIds,
   grimoireConfirmed = false,
   onGrimoireConfirmed,
+  resetGame,
 }: StandardSetupPhaseProps) {
   const [showGrimoireWarning, setShowGrimoireWarning] = useState(false);
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
@@ -227,7 +229,21 @@ export default function StandardSetupPhase({
       {/* Section B: Players & Roles list */}
       <div className="md:col-start-1 md:row-start-1 md:row-span-2 space-y-6 w-full">
         <section>
-          <h2 className="font-display text-lg font-bold tracking-wider uppercase text-gray-300 mb-4">Setup ({players.length} Players)</h2>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <h2 className="font-display text-lg font-bold tracking-wider uppercase text-gray-300">Setup ({players.length} Players)</h2>
+            <button
+              type="button"
+              onClick={resetGame}
+              className={cn(
+                "shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded border transition-colors",
+                isLightModeActive
+                  ? "border-gray-300 text-red-600 hover:bg-red-50"
+                  : "border-gray-800 text-red-400 hover:bg-gray-800"
+              )}
+            >
+              Reset Game
+            </button>
+          </div>
 
           <div className="flex gap-2 mb-4">
             <input

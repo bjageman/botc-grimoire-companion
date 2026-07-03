@@ -20,6 +20,7 @@ import PageLayout from './components/shared/PageLayout';
 import DialogModal from './components/shared/DialogModal';
 import RoomCodeModal from './components/shared/RoomCodeModal';
 import HeaderCodeBadge from './components/shared/HeaderCodeBadge';
+import DeclareWinnerModal from './components/shared/DeclareWinnerModal';
 import { useDialog } from './hooks/useDialog';
 
 export type Player = Omit<BasePlayer, 'preferences'> & {
@@ -130,6 +131,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   const [demonBluffs, setDemonBluffs] = usePersistedField<string[]>(STORAGE_KEY, 'demonBluffs', []);
   const [showRoomCodeModal, setShowRoomCodeModal] = useState(false);
   const [remotePlayerIds, setRemotePlayerIds] = useState<Set<string>>(new Set());
+  const [declareWinnerPrompt, setDeclareWinnerPrompt] = useState<'good' | 'evil' | null>(null);
 
   const [reminderTokens, setReminderTokens] = usePersistedField<PlacedReminder[]>(STORAGE_KEY, 'reminderTokens', []);
 
@@ -754,34 +756,73 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     setModalRoleSearch('');
   };
 
-  const resetGame = () => {
-    showConfirm('Are you sure you want to reset the game? This clears all players and settings.', async () => {
-      if (sendMessageRef.current) {
-        try {
-          await sendMessageRef.current({ type: 'storyteller_quit' });
-        } catch (e) {
-          console.error('Failed to notify players on reset:', e);
-        }
+  const performFullReset = async () => {
+    if (sendMessageRef.current) {
+      try {
+        await sendMessageRef.current({ type: 'storyteller_quit' });
+      } catch (e) {
+        console.error('Failed to notify players on reset:', e);
       }
-      setPlayers([]);
-      setPhase('setup');
-      setActiveDraftPlayerId(null);
-      setSearchTerm('');
-      setTimeOfDay('night');
-      setDayNumber(1);
-      setIsLilMonstaGame(false);
-      setReminderTokens([]);
-      setCheckedItems({});
-      setRemotePlayerIds(new Set());
-      localStorage.removeItem(STORAGE_KEY);
-      const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
-      localStorage.setItem('whale-bucket-game-code', newCode);
-      const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
-      localStorage.setItem('whale-bucket-sync-code', newSync);
-      setGameCode(newCode);
-      setSyncCode(newSync);
-      window.location.hash = '';
-    }, 'Reset Game');
+    }
+    setPlayers([]);
+    setPhase('setup');
+    setActiveDraftPlayerId(null);
+    setSearchTerm('');
+    setTimeOfDay('night');
+    setDayNumber(1);
+    setIsLilMonstaGame(false);
+    setReminderTokens([]);
+    setCheckedItems({});
+    setRemotePlayerIds(new Set());
+    localStorage.removeItem(STORAGE_KEY);
+    const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('whale-bucket-game-code', newCode);
+    const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('whale-bucket-sync-code', newSync);
+    setGameCode(newCode);
+    setSyncCode(newSync);
+    window.location.hash = '';
+  };
+
+  // Like performFullReset, but keeps the sync session (and connected players)
+  // alive — clears role assignments and round state, then drops back to
+  // setup so the storyteller can run another round with the same group.
+  const resetGameKeepConnected = () => {
+    setPlayers(prev => prev.map(p => ({
+      ...p,
+      roleId: undefined,
+      roleIds: undefined,
+      isDead: false,
+      hasDeadVote: false,
+      isTheDrunk: false,
+      isTheMarionette: false,
+      isTheLunatic: false,
+      isTheLilMonsta: false,
+      isEvil: undefined,
+      notes: undefined,
+    })));
+    setPhase('setup');
+    setActiveDraftPlayerId(null);
+    setSearchTerm('');
+    setTimeOfDay('night');
+    setDayNumber(1);
+    setIsLilMonstaGame(false);
+    setDemonBluffs([]);
+    setGameLog([]);
+    setReminderTokens([]);
+    setCheckedItems({});
+  };
+
+  const broadcastWinner = (team: 'good' | 'evil') => {
+    const label = team === 'good' ? '🌟 Good wins!' : '😈 Evil wins!';
+    addLogEntry(`Game over ${label}`);
+    if (sendMessageRef.current) {
+      sendMessageRef.current({ type: 'game_winner', team });
+    }
+  };
+
+  const resetGame = () => {
+    showConfirm('Are you sure you want to reset the game? This clears all players and settings.', performFullReset, 'Reset Game');
   };
 
   const resetDead = () => {
@@ -927,6 +968,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           excludedRoleIds={excludedRoleIds}
           setExcludedRoleIds={setExcludedRoleIds}
           remotePlayerIds={remotePlayerIds}
+          resetGame={resetGame}
         />
       )}
 
@@ -996,18 +1038,10 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           }}
           onLogEvent={addLogEntry}
           onDeclareWinner={(team) => {
-            const broadcast = () => {
-              const label = team === 'good' ? '🌟 Good wins!' : '😈 Evil wins!';
-              addLogEntry(`Game over ${label}`);
-              if (sendMessageRef.current) {
-                sendMessageRef.current({ type: 'game_winner', team });
-              }
-            };
             if (remotePlayerIds.size > 0) {
-              const teamLabel = team === 'good' ? 'Good' : 'Evil';
-              showConfirm(`Declare ${teamLabel} the winner? This will notify all ${remotePlayerIds.size} connected player${remotePlayerIds.size === 1 ? '' : 's'}.`, broadcast);
+              setDeclareWinnerPrompt(team);
             } else {
-              broadcast();
+              broadcastWinner(team);
             }
           }}
           reminderTokens={reminderTokens}
@@ -1099,6 +1133,24 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
         onClose={() => setShowSyncModal(false)}
         isLightModeActive={isLightModeActive}
         syncOnly={true}
+      />
+    )}
+    {declareWinnerPrompt && (
+      <DeclareWinnerModal
+        team={declareWinnerPrompt}
+        remotePlayerCount={remotePlayerIds.size}
+        isLightModeActive={isLightModeActive}
+        onCancel={() => setDeclareWinnerPrompt(null)}
+        onDisconnect={() => {
+          broadcastWinner(declareWinnerPrompt);
+          setDeclareWinnerPrompt(null);
+          performFullReset();
+        }}
+        onResetKeepConnected={() => {
+          broadcastWinner(declareWinnerPrompt);
+          setDeclareWinnerPrompt(null);
+          resetGameKeepConnected();
+        }}
       />
     )}
     </>

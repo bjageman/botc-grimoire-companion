@@ -35,6 +35,7 @@ interface WhaleBucketSetupPhaseProps {
   excludedRoleIds: string[];
   setExcludedRoleIds: React.Dispatch<React.SetStateAction<string[]>>;
   remotePlayerIds?: Set<string>;
+  resetGame: () => void;
 }
 
 export default function WhaleBucketSetupPhase({
@@ -62,6 +63,7 @@ export default function WhaleBucketSetupPhase({
   excludedRoleIds,
   setExcludedRoleIds,
   remotePlayerIds,
+  resetGame,
 }: WhaleBucketSetupPhaseProps) {
   const [excludeSearchTerm, setExcludeSearchTerm] = useState('');
   const [isExcludeFocused, setIsExcludeFocused] = useState(false);
@@ -93,22 +95,36 @@ export default function WhaleBucketSetupPhase({
         <section>
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-display text-base font-bold tracking-wider uppercase text-gray-300">Setup ({players.length} Players)</h2>
-            {players.length > 0 && (
-              <div className="flex gap-2">
-                <button 
-                  onClick={autoFillAllPreferences} 
-                  className="text-[10px] bg-clocktower-townsfolk/10 text-clocktower-townsfolk border border-clocktower-townsfolk/20 px-2 py-1 rounded hover:bg-clocktower-townsfolk/25 transition-all"
-                >
-                  Auto-Fill All
-                </button>
-                <button 
-                  onClick={clearAllPreferences} 
-                  className="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700 transition-all"
-                >
-                  Clear All
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              {players.length > 0 && (
+                <>
+                  <button
+                    onClick={autoFillAllPreferences}
+                    className="text-[10px] bg-clocktower-townsfolk/10 text-clocktower-townsfolk border border-clocktower-townsfolk/20 px-2 py-1 rounded hover:bg-clocktower-townsfolk/25 transition-all"
+                  >
+                    Auto-Fill All
+                  </button>
+                  <button
+                    onClick={clearAllPreferences}
+                    className="text-[10px] bg-gray-800 text-gray-400 border border-gray-700 px-2 py-1 rounded hover:bg-gray-700 transition-all"
+                  >
+                    Clear All
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={resetGame}
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded border transition-colors",
+                  isLightModeActive
+                    ? "border-gray-300 text-red-600 hover:bg-red-50"
+                    : "border-gray-800 text-red-400 hover:bg-gray-800"
+                )}
+              >
+                Reset Game
+              </button>
+            </div>
           </div>
 
           <div className="flex gap-2 mb-4">

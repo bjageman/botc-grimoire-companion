@@ -21,6 +21,7 @@ import DialogModal from './components/shared/DialogModal';
 import { useDialog } from './hooks/useDialog';
 import RoomCodeModal from './components/shared/RoomCodeModal';
 import HeaderCodeBadge from './components/shared/HeaderCodeBadge';
+import DeclareWinnerModal from './components/shared/DeclareWinnerModal';
 
 type Phase = 'setup' | 'game';
 
@@ -64,6 +65,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   const [remotePlayerIds, setRemotePlayerIds] = useState<Set<string>>(new Set());
   const [showRoomCodeModal, setShowRoomCodeModal] = useState(false);
   const [grimoireConfirmed, setGrimoireConfirmed] = useState(false);
+  const [declareWinnerPrompt, setDeclareWinnerPrompt] = useState<'good' | 'evil' | null>(null);
 
   const [reminderTokens, setReminderTokens] = usePersistedField<PlacedReminder[]>(STORAGE_KEY, 'reminderTokens', []);
 
@@ -144,36 +146,75 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     setModalRoleSearch('');
   };
 
-  const resetGame = () => {
-    showConfirm('Are you sure you want to reset the game? This clears all players and settings.', async () => {
-      if (sendMessageRef.current) {
-        try {
-          await sendMessageRef.current({ type: 'storyteller_quit' });
-        } catch (e) {
-          console.error('Failed to notify players on reset:', e);
-        }
+  const performFullReset = async () => {
+    if (sendMessageRef.current) {
+      try {
+        await sendMessageRef.current({ type: 'storyteller_quit' });
+      } catch (e) {
+        console.error('Failed to notify players on reset:', e);
       }
-      setPlayers([]);
-      setPhase('setup');
-      setSearchTerm('');
-      setTimeOfDay('night');
-      setDayNumber(1);
-      setIsLilMonstaGame(false);
-      setScriptName("All Roles");
-      setCustomScriptRoles(null);
-      setDemonBluffs([]);
-      setGameLog([]);
-      setReminderTokens([]);
-      setCheckedItems({});
-      localStorage.removeItem(STORAGE_KEY);
-      const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
-      localStorage.setItem('standard-botc-game-code', newCode);
-      const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
-      localStorage.setItem('standard-botc-sync-code', newSync);
-      window.location.hash = '';
-      setGameCode(newCode);
-      setSyncCode(newSync);
-    }, 'Reset Game');
+    }
+    setPlayers([]);
+    setPhase('setup');
+    setSearchTerm('');
+    setTimeOfDay('night');
+    setDayNumber(1);
+    setIsLilMonstaGame(false);
+    setScriptName("All Roles");
+    setCustomScriptRoles(null);
+    setDemonBluffs([]);
+    setGameLog([]);
+    setReminderTokens([]);
+    setCheckedItems({});
+    localStorage.removeItem(STORAGE_KEY);
+    const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('standard-botc-game-code', newCode);
+    const newSync = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('standard-botc-sync-code', newSync);
+    window.location.hash = '';
+    setGameCode(newCode);
+    setSyncCode(newSync);
+  };
+
+  const resetGame = () => {
+    showConfirm('Are you sure you want to reset the game? This clears all players and settings.', performFullReset, 'Reset Game');
+  };
+
+  // Like resetGame, but keeps the sync session (and connected players) alive —
+  // clears role assignments and round state, then drops back to setup so the
+  // storyteller can run another round with the same group.
+  const resetGameKeepConnected = () => {
+    setPlayers(prev => prev.map(p => ({
+      ...p,
+      roleId: undefined,
+      roleIds: undefined,
+      isDead: false,
+      hasDeadVote: false,
+      isTheDrunk: false,
+      isTheMarionette: false,
+      isTheLunatic: false,
+      isTheLilMonsta: false,
+      isEvil: undefined,
+      notes: undefined,
+    })));
+    setPhase('setup');
+    setSearchTerm('');
+    setTimeOfDay('night');
+    setDayNumber(1);
+    setIsLilMonstaGame(false);
+    setDemonBluffs([]);
+    setGameLog([]);
+    setReminderTokens([]);
+    setCheckedItems({});
+    setGrimoireConfirmed(false);
+  };
+
+  const broadcastWinner = (team: 'good' | 'evil') => {
+    const label = team === 'good' ? '🌟 Good wins!' : '😈 Evil wins!';
+    addLogEntry(`Game over ${label}`);
+    if (sendMessageRef.current) {
+      sendMessageRef.current({ type: 'game_winner', team });
+    }
   };
 
   const resetDead = () => {
@@ -912,6 +953,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           remotePlayerIds={remotePlayerIds}
           grimoireConfirmed={grimoireConfirmed}
           onGrimoireConfirmed={() => setGrimoireConfirmed(true)}
+          resetGame={resetGame}
           draggedIndex={draggedIndex}
           dragOverIndex={dragOverIndex}
           handleMouseDown={handleMouseDown}
@@ -983,18 +1025,10 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           }}
           onLogEvent={addLogEntry}
           onDeclareWinner={(team) => {
-            const broadcast = () => {
-              const label = team === 'good' ? '🌟 Good wins!' : '😈 Evil wins!';
-              addLogEntry(`Game over ${label}`);
-              if (sendMessageRef.current) {
-                sendMessageRef.current({ type: 'game_winner', team });
-              }
-            };
             if (remotePlayerIds.size > 0) {
-              const teamLabel = team === 'good' ? 'Good' : 'Evil';
-              showConfirm(`Declare ${teamLabel} the winner? This will notify all ${remotePlayerIds.size} connected player${remotePlayerIds.size === 1 ? '' : 's'}.`, broadcast);
+              setDeclareWinnerPrompt(team);
             } else {
-              broadcast();
+              broadcastWinner(team);
             }
           }}
           reminderTokens={reminderTokens}
@@ -1073,6 +1107,24 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         onClose={() => setShowSyncModal(false)}
         isLightModeActive={isLightModeActive}
         syncOnly={true}
+      />
+    )}
+    {declareWinnerPrompt && (
+      <DeclareWinnerModal
+        team={declareWinnerPrompt}
+        remotePlayerCount={remotePlayerIds.size}
+        isLightModeActive={isLightModeActive}
+        onCancel={() => setDeclareWinnerPrompt(null)}
+        onDisconnect={() => {
+          broadcastWinner(declareWinnerPrompt);
+          setDeclareWinnerPrompt(null);
+          performFullReset();
+        }}
+        onResetKeepConnected={() => {
+          broadcastWinner(declareWinnerPrompt);
+          setDeclareWinnerPrompt(null);
+          resetGameKeepConnected();
+        }}
       />
     )}
     </>

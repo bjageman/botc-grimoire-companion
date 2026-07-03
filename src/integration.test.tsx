@@ -556,6 +556,121 @@ describe('Storyteller Grimoire Bug Fixes', () => {
     joinPage.unmount();
   });
 
+  it('declare-winner modal offers Disconnect, Reset Game, and Cancel when players are connected', async () => {
+    seedPrimary({
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }],
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+    const gameCode = localStorage.getItem('standard-botc-game-code');
+
+    sessionStorage.setItem('joined-code', gameCode!);
+    sessionStorage.setItem('joined-name', 'Alice');
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    fireEvent.click(within(storyteller.container).getByText('😈 Evil Wins'));
+
+    const modal = within(storyteller.container);
+    expect(modal.getByText(/Declare Evil the winner\?/i)).toBeInTheDocument();
+    expect(modal.getByText('Disconnect')).toBeInTheDocument();
+    expect(modal.getByText('Reset Game')).toBeInTheDocument();
+    expect(modal.getByText('Cancel')).toBeInTheDocument();
+
+    // Cancel closes the modal and sends nothing
+    fireEvent.click(modal.getByText('Cancel'));
+    expect(modal.queryByText(/Declare Evil the winner\?/i)).not.toBeInTheDocument();
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'game_winner')).toBe(false);
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
+
+  it('Reset Game after declaring a winner keeps the player connected and sends them back to the waiting room', async () => {
+    seedPrimary({
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }],
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+    const gameCode = localStorage.getItem('standard-botc-game-code');
+
+    sessionStorage.setItem('joined-code', gameCode!);
+    sessionStorage.setItem('joined-name', 'Alice');
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    fireEvent.click(within(storyteller.container).getByText('😈 Evil Wins'));
+    fireEvent.click(within(storyteller.container).getByText('Reset Game'));
+
+    // Storyteller broadcast a winner, but never a storyteller_quit — the
+    // session (and the joined player) should stay alive. The setup-update
+    // broadcast is debounced twice (500ms effect + 1000ms inner debounce).
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 1700));
+    });
+
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'game_winner')).toBe(true);
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'storyteller_quit')).toBe(false);
+
+    // Storyteller dropped back to the setup screen
+    expect(within(storyteller.container).getByText(/Setup \(1 Players\)/i)).toBeInTheDocument();
+
+    // The joined player is back on the waiting screen, not booted or still revealed
+    expect(joinPage.container.querySelector('#waiting-screen')).not.toBeNull();
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
+
+  it('Disconnect after declaring a winner notifies players and fully resets the session', async () => {
+    seedPrimary({
+      players: [{ id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' }],
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+    const gameCode = localStorage.getItem('standard-botc-game-code');
+
+    sessionStorage.setItem('joined-code', gameCode!);
+    sessionStorage.setItem('joined-name', 'Alice');
+    const joinPage = render(<JoinPage theme="dark" toggleTheme={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    fireEvent.click(within(storyteller.container).getByText('😈 Evil Wins'));
+    fireEvent.click(within(storyteller.container).getByText('Disconnect'));
+
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'game_winner')).toBe(true);
+    expect(sentPayloads.some(p => (p.payload as { type?: string }).type === 'storyteller_quit')).toBe(true);
+    expect(window.location.hash).toBe('');
+
+    storyteller.unmount();
+    joinPage.unmount();
+  });
+
   it('persists both name and notes when edited together and the modal is closed (regression: stale-closure race)', async () => {
     const PLAYERS = [
       { id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' },

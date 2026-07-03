@@ -113,7 +113,10 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current);
         setGameType(payload.gameType);
 
-        if (state === 'checking') {
+        // 'revealed' means the storyteller reset the game back to setup after
+        // this player had already seen their character — send them back to
+        // the waiting room (or preference picker) for the next round.
+        if (state === 'checking' || state === 'revealed') {
           if (payload.gameType === 'whale-bucket') {
             setState('preferences');
           } else {
@@ -134,7 +137,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         setCustomScriptRoles(payload.customScriptRoles);
       }
 
-      if (state === 'waiting' || state === 'preferences' || state === 'checking') {
+      if (state === 'waiting' || state === 'preferences' || state === 'checking' || state === 'revealed') {
         setPlayers(payload.players || []);
       }
     } else if (payload.type === 'code_valid') {
