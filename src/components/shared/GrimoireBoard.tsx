@@ -4,7 +4,6 @@ import { ChevronRight, RotateCcw, RotateCw } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Player, Role, PlacedReminder } from '../../types';
 import { cn } from '../../utils/cn';
-import officialRoles from '../../official_roles.json';
 import ReminderPickerModal from './ReminderPickerModal';
 import ReminderTokenModal from './ReminderTokenModal';
 import DayNightLabel from './DayNightLabel';
@@ -650,13 +649,9 @@ export default function GrimoireBoard({
                               ? ['marionette']
                               : p.isTheLunatic
                                 ? ['lunatic']
-                                : p.isTheLilMonsta
-                                  ? ['lilmonsta']
-                                  : [null]);
+                                : [null]);
                     return displayRoles.map((roleId, idx) => {
-                      const roleObj = roleId 
-                        ? (rolesData.find((r) => r.id === roleId) || (officialRoles as Role[]).find((r) => r.id === roleId))
-                        : null;
+                      const roleObj = roleId ? rolesData.find((r) => r.id === roleId) : null;
                       const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
                       const isEvil = p.isEvil !== undefined
                         ? p.isEvil
@@ -756,7 +751,7 @@ export default function GrimoireBoard({
                           {/* Centered character icon */}
                           {roleObj && (
                             <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none select-none">
-                              <div className="w-[65%] h-[65%] flex items-center justify-center">
+                              <div className="w-[50%] h-[50%] flex items-center justify-center">
                                 <img
                                   src={`/icons/${roleObj.id}.svg`}
                                   alt={roleObj.name}

@@ -61,13 +61,12 @@ export default function WhaleBucketPreferenceCircle({
         {players.map((p, index) => {
           const pos = positions[index] ?? { left: 50, top: 50 };
           const isDropTarget = dragOverIndex === index && draggedIndex !== index;
-          const prefs = p.preferences || { townsfolk: [], outsider: [], minion: [], demon: [], traveler: [] };
           const filledCount = [
-            prefs.townsfolk,
-            prefs.outsider,
-            prefs.minion,
-            prefs.demon,
-            ...(allowTravelers ? [prefs.traveler || []] : []),
+            p.preferences.townsfolk,
+            p.preferences.outsider,
+            p.preferences.minion,
+            p.preferences.demon,
+            ...(allowTravelers ? [p.preferences.traveler || []] : []),
           ].filter(arr => arr.length > 0).length;
 
           return (

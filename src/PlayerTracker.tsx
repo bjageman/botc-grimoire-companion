@@ -46,7 +46,6 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
 
   // Script states
   const [scriptName, setScriptName] = usePersistedField<string>(STORAGE_KEY, 'scriptName', "All Roles");
-  const [scriptAuthor, setScriptAuthor] = usePersistedField<string>(STORAGE_KEY, 'scriptAuthor', "");
   const [customScriptRoles, setCustomScriptRoles] = usePersistedField<Role[] | null>(STORAGE_KEY, 'customScriptRoles', null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -64,27 +63,12 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   const handleIncomingMessage = (data: unknown) => {
     const payload = data as {
       type: string;
-      gameType?: 'standard' | 'whale-bucket';
       players?: Player[];
       timeOfDay?: 'night' | 'day';
       dayNumber?: number;
       scriptName?: string;
-      scriptAuthor?: string;
       customScriptRoles?: Role[] | null;
-      playerId?: string;
     };
-    // Only an explicit reset returns a joined game-tracker player to the
-    // JoinPage lobby (waiting room for Standard, reset preferences picker for
-    // Whale Bucket). A plain setup_update is NOT a reset: the storyteller may
-    // just step back to setup to tweak something, and that should leave players
-    // on their character / tracker untouched.
-    const joinedFromLobby = !!sessionStorage.getItem('joined-code') && !!sessionStorage.getItem('joined-name');
-    if (payload.type === 'game_reset') {
-      if (joinedFromLobby) {
-        window.location.hash = payload.gameType === 'whale-bucket' ? '#/join?returnTo=preferences' : '#/join';
-      }
-      return;
-    }
     if (payload.type === 'setup_update' || payload.type === 'game_started' || payload.type === 'game_update') {
       if (payload.players) {
         setPlayers((currentPlayers) => {
@@ -122,9 +106,6 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       if (payload.scriptName) {
         setScriptName(payload.scriptName);
       }
-      if (payload.scriptAuthor !== undefined) {
-        setScriptAuthor(payload.scriptAuthor);
-      }
       if (payload.customScriptRoles !== undefined) {
         setCustomScriptRoles(payload.customScriptRoles);
       }
@@ -146,24 +127,6 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
         }
       }
       setGameCode(null);
-    } else if (payload.type === 'booted') {
-      const myPlayerId = sessionStorage.getItem('botc-player-id');
-      if (payload.playerId === myPlayerId) {
-        showAlert('You have been booted from the game room. Reverting to local tracker.');
-        sessionStorage.removeItem('joined-code');
-        sessionStorage.removeItem('joined-name');
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            delete parsed.code;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-          } catch (e) {
-            console.error(e);
-          }
-        }
-        setGameCode(null);
-      }
     }
   };
 
@@ -175,32 +138,21 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
     setModalRoleSearch('');
   };
 
-  const clearSyncSession = () => {
-    sessionStorage.removeItem('joined-code');
-    sessionStorage.removeItem('joined-name');
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        delete parsed.code;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    setGameCode(null);
-  };
-
   const disconnectSync = () => {
-    showConfirm('Disconnect from this synced session? You\'ll keep your current players and notes locally, but stop receiving updates from the Storyteller.', clearSyncSession, 'Disconnect Sync');
-  };
-
-  // Back-button guard: a synced player about to leave to the main menu is
-  // asked to confirm first (cancel keeps them in the session).
-  const confirmDisconnectAndLeave = () => {
-    showConfirm("Disconnect from this synced session and return to the main menu?", () => {
-      clearSyncSession();
-      window.location.hash = '';
+    showConfirm('Disconnect from this synced session? You\'ll keep your current players and notes locally, but stop receiving updates from the Storyteller.', () => {
+      sessionStorage.removeItem('joined-code');
+      sessionStorage.removeItem('joined-name');
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          delete parsed.code;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setGameCode(null);
     }, 'Disconnect Sync');
   };
 
@@ -258,11 +210,10 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       dayNumber,
       customScriptRoles,
       scriptName,
-      scriptAuthor,
       gameNotes,
       code: gameCode || undefined,
     }));
-  }, [players, phase, timeOfDay, dayNumber, customScriptRoles, scriptName, scriptAuthor, gameNotes, gameCode]);
+  }, [players, phase, timeOfDay, dayNumber, customScriptRoles, scriptName, gameNotes, gameCode]);
 
   const toggleTimeOfDay = () => {
     if (timeOfDay === 'night') {
@@ -349,6 +300,7 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           ...p,
           roleId: roleIds[0] || undefined,
           roleIds: roleIds,
+          isEvil: undefined,
           isTheDrunk: false,
           isTheMarionette: false,
           isTheLunatic: false,
@@ -397,10 +349,9 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     parseScriptFile(file)
-      .then(({ name, author, roles }) => {
+      .then(({ name, roles }) => {
         setCustomScriptRoles(roles);
         setScriptName(name);
-        setScriptAuthor(author);
       })
       .catch(err => showAlert((err as Error).message));
   };
@@ -408,7 +359,6 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   const clearCustomScript = () => {
     setCustomScriptRoles(null);
     setScriptName("All Roles");
-    setScriptAuthor("");
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -458,16 +408,8 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
     <PageLayout
       theme={theme}
       toggleTheme={toggleTheme}
-      backHref={phase === 'setup' && !isSynced ? "#/" : undefined}
-      onBack={
-        phase !== 'setup'
-          ? () => setPhase('setup')
-          : isSynced
-            // Synced tracker: confirm before leaving so a stray back press
-            // doesn't silently drop the player out of the game.
-            ? confirmDisconnectAndLeave
-            : undefined
-      }
+      backHref={phase === 'setup' ? "#/" : undefined}
+      onBack={phase !== 'setup' ? () => setPhase('setup') : undefined}
       titleContent={
         <div className="flex items-center justify-center gap-2">
           <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
@@ -515,7 +457,6 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           players={players}
           customScriptRoles={customScriptRoles}
           scriptName={scriptName}
-          scriptAuthor={scriptAuthor}
           newPlayerName={newPlayerName}
           setNewPlayerName={setNewPlayerName}
           addPlayer={addPlayer}
@@ -580,13 +521,28 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           onResetTime={isSynced ? undefined : resetTime}
           showNightOrder={false}
           scriptName={scriptName}
-          scriptAuthor={scriptAuthor}
           customScriptRoles={customScriptRoles}
           isSynced={isSynced}
           enableReminders={false}
-          notes={gameNotes}
-          onNotesChange={setGameNotes}
         />
+      )}
+
+      {phase === 'game' && (
+        <div className="mt-2 space-y-1.5">
+          <p className={cn('text-[10px] uppercase font-bold tracking-wider', isLightModeActive ? 'text-gray-400' : 'text-gray-500')}>Notes</p>
+          <textarea
+            value={gameNotes}
+            onChange={(e) => setGameNotes(e.target.value)}
+            placeholder="Write anything here — deductions, suspicions, reminders..."
+            rows={5}
+            className={cn(
+              'w-full rounded-lg border px-3 py-2 text-sm resize-none focus:outline-none transition-colors leading-relaxed',
+              isLightModeActive
+                ? 'bg-white border-gray-200 text-gray-800 placeholder-gray-400 focus:border-gray-400'
+                : 'bg-gray-900/60 border-gray-800 text-gray-200 placeholder-gray-600 focus:border-gray-600'
+            )}
+          />
+        </div>
       )}
 
       {/* Player Details Modal */}

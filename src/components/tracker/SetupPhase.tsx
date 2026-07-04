@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Plus, Upload } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import type { Player, Role } from '../../types';
+import { getScriptStats } from '../../utils/scriptUtils';
 import rolesData from '../../roles.json';
 import PlayerTrackerCircle from './PlayerCircle';
 import ScriptHelpButton from '../shared/ScriptHelpButton';
@@ -11,7 +12,6 @@ interface PlayerTrackerSetupPhaseProps {
   players: Player[];
   customScriptRoles: Role[] | null;
   scriptName: string;
-  scriptAuthor: string;
   newPlayerName: string;
   setNewPlayerName: (name: string) => void;
   addPlayer: () => void;
@@ -39,7 +39,6 @@ export default function PlayerTrackerSetupPhase({
   players,
   customScriptRoles,
   scriptName,
-  scriptAuthor,
   newPlayerName,
   setNewPlayerName,
   addPlayer,
@@ -97,7 +96,7 @@ export default function PlayerTrackerSetupPhase({
                 {customScriptRoles ? "📜" : "🌐"} {scriptName}
               </span>
               <span className="text-[10px] text-gray-500 font-medium">
-                {scriptAuthor ? `by ${scriptAuthor} — Synced from Storyteller` : customScriptRoles ? "Custom script — Synced from Storyteller" : "Active Script (Synced from Storyteller)"}
+                {customScriptRoles ? `${getScriptStats(customScriptRoles)} — Synced from Storyteller` : "Active Script (Synced from Storyteller)"}
               </span>
             </div>
           ) : (
@@ -124,7 +123,7 @@ export default function PlayerTrackerSetupPhase({
                   </span>
                   <span className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
                     <Upload size={12} />
-                    {customScriptRoles ? `${scriptAuthor ? `by ${scriptAuthor}` : 'Custom script'} — Click to change` : "Upload Script (.json)"}
+                    {customScriptRoles ? `${getScriptStats(customScriptRoles)} — Click to change` : "Upload Script (.json)"}
                   </span>
                 </button>
                 <ScriptHelpButton isLightModeActive={isLightModeActive} />
@@ -263,7 +262,7 @@ export default function PlayerTrackerSetupPhase({
       onClose={() => setIsScriptModalOpen(false)}
       scriptName={scriptName}
       roles={sortedRoles}
-      scriptAuthor={scriptAuthor || undefined}
+      scriptStats={customScriptRoles ? getScriptStats(customScriptRoles) : undefined}
       isLightModeActive={isLightModeActive}
     />
     </>

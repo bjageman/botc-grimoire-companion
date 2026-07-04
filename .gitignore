@@ -28,13 +28,9 @@ docker-compose.prod.yml
 docker-compose.dev.yml
 .env
 ntfy/
+ntfy-dev/
+local-overrides/
 
 # Blood on the Clocktower character icons
 public/icons/
-
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
 
