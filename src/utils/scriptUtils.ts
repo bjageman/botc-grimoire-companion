@@ -8,7 +8,9 @@ export function generateGameCode(): string {
   ).join('');
 }
 
-export function parseScriptFile(file: File): Promise<{ name: string; author: string; roles: Role[] }> {
+const VALID_TEAMS = new Set(['townsfolk', 'outsider', 'minion', 'demon', 'traveler']);
+
+export function parseScriptFile(file: File): Promise<{ name: string; author: string; roles: Role[]; unknownRoles: { id: string; name: string }[] }> {
   const allRoles = rolesData as Role[];
   const official = officialRoles as { id: string; name: string; team: string }[];
 
@@ -29,6 +31,8 @@ export function parseScriptFile(file: File): Promise<{ name: string; author: str
         ) as { id: string; name?: string; author?: string } | undefined;
         const name = metaObj?.name || file.name.replace('.json', '');
         const author = metaObj?.author || '';
+
+        const unknownRoles: { id: string; name: string }[] = [];
 
         const parsedRoles = parsed
           .map((item: unknown) => {
@@ -64,13 +68,38 @@ export function parseScriptFile(file: File): Promise<{ name: string; author: str
               r => r.id.toLowerCase() === item.id.toLowerCase()
             );
             if (matched) return matched;
+
+            // Custom/homebrew character not in our known role list — best-effort synthesize
+            // it from whatever the script JSON itself provided, instead of silently forcing
+            // it to Townsfolk (which used to corrupt the evil-team distribution whenever a
+            // custom Minion/Demon/Outsider was uploaded).
+            const itemObj = item as Record<string, unknown>;
+            const rawTeam = typeof itemObj.team === 'string' ? itemObj.team.toLowerCase() : '';
+            const normalizedTeam = rawTeam === 'traveller' ? 'traveler' : rawTeam;
+            const team = (VALID_TEAMS.has(normalizedTeam) ? normalizedTeam : 'townsfolk') as Role['team'];
+
+            const displayName = typeof itemObj.name === 'string' && itemObj.name.trim()
+              ? itemObj.name
+              : item.id
+                  .split('_')
+                  .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+
+            const ability = typeof itemObj.ability === 'string' && itemObj.ability.trim()
+              ? itemObj.ability
+              : undefined;
+            const image = Array.isArray(itemObj.image) && itemObj.image.every(u => typeof u === 'string')
+              ? itemObj.image as string[]
+              : undefined;
+
+            unknownRoles.push({ id: item.id, name: displayName });
+
             return {
               id: item.id.toLowerCase(),
-              name: item.id
-                .split('_')
-                .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(' '),
-              team: 'townsfolk' as const,
+              name: displayName,
+              team,
+              ...(ability && { ability }),
+              ...(image && { image }),
             };
           });
 
@@ -79,7 +108,7 @@ export function parseScriptFile(file: File): Promise<{ name: string; author: str
           return;
         }
 
-        resolve({ name, author, roles: parsedRoles });
+        resolve({ name, author, roles: parsedRoles, unknownRoles });
       } catch {
         reject(new Error('Failed to parse JSON script file.'));
       }
