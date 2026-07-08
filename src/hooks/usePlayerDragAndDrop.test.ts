@@ -190,7 +190,7 @@ describe('usePlayerDragAndDrop', () => {
     act(() => {
       result.current.handleTouchEnd();
     });
-    expect(setItems).toHaveBeenCalledWith(['Bob', 'Charlie', 'Alice']);
+    expect(setItems).toHaveBeenCalledWith(['Charlie', 'Bob', 'Alice']);
     expect(result.current.draggedIndex).toBeNull();
     expect(result.current.dragOverIndex).toBeNull();
 

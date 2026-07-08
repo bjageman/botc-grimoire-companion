@@ -40,8 +40,9 @@ export function usePlayerDragAndDrop<T>(items: T[], setItems: (items: T[]) => vo
     if (sourceIndex !== null && sourceIndex !== undefined && !isNaN(sourceIndex)) {
       if (sourceIndex !== targetIndex) {
         const updated = [...items];
-        const [removed] = updated.splice(sourceIndex, 1);
-        updated.splice(targetIndex, 0, removed);
+        const temp = updated[sourceIndex];
+        updated[sourceIndex] = updated[targetIndex];
+        updated[targetIndex] = temp;
         setItems(updated);
       }
     }
@@ -94,8 +95,9 @@ export function usePlayerDragAndDrop<T>(items: T[], setItems: (items: T[]) => vo
     if (draggedIndex !== null && dragOverIndex !== null) {
       if (draggedIndex !== dragOverIndex) {
         const updated = [...items];
-        const [removed] = updated.splice(draggedIndex, 1);
-        updated.splice(dragOverIndex, 0, removed);
+        const temp = updated[draggedIndex];
+        updated[draggedIndex] = updated[dragOverIndex];
+        updated[dragOverIndex] = temp;
         setItems(updated);
       }
     }
@@ -107,8 +109,9 @@ export function usePlayerDragAndDrop<T>(items: T[], setItems: (items: T[]) => vo
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= items.length) return;
     const updated = [...items];
-    const [removed] = updated.splice(index, 1);
-    updated.splice(targetIndex, 0, removed);
+    const temp = updated[index];
+    updated[index] = updated[targetIndex];
+    updated[targetIndex] = temp;
     setItems(updated);
   };
 
