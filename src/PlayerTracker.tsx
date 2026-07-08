@@ -16,11 +16,18 @@ import { usePersistedField, readPersistedField } from './hooks/usePersistedField
 import PageLayout from './components/shared/PageLayout';
 import DialogModal from './components/shared/DialogModal';
 import HeaderCodeBadge from './components/shared/HeaderCodeBadge';
+import RoomCodeModal from './components/shared/RoomCodeModal';
 import { useDialog } from './hooks/useDialog';
 
 type Phase = 'setup' | 'game';
 
 const STORAGE_KEY = 'player-tracker-botc-game';
+
+function parseShareCodeFromHash(): string | null {
+  const hash = window.location.hash;
+  const queryStr = hash.includes('?') ? hash.split('?')[1] : window.location.search;
+  return new URLSearchParams(queryStr).get('shareCode');
+}
 
 interface SetupProps {
   theme: 'light' | 'dark';
@@ -68,6 +75,19 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
 
   const isSynced = !!gameCode;
   const { dialogProps, showAlert, showConfirm } = useDialog();
+
+  // A one-way "share my local notes" code — separate from `gameCode` (which
+  // is only ever set when this tracker has joined a live Storyteller game).
+  // Anyone with this code can view a read-only copy of the grimoire and
+  // player names; no characters, status, or notes are ever sent.
+  const [shareCode, setShareCode] = useState<string>(() => {
+    const saved = localStorage.getItem('tracker-botc-share-code');
+    if (saved) return saved;
+    const newCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+    localStorage.setItem('tracker-botc-share-code', newCode);
+    return newCode;
+  });
+  const [showShareModal, setShowShareModal] = useState(false);
 
   const [gameNotes, setGameNotes] = usePersistedField<string>(STORAGE_KEY, 'gameNotes', '');
   const [enableReminders, setEnableReminders] = usePersistedField<boolean>(STORAGE_KEY, 'enableReminders', false);
@@ -193,6 +213,91 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
 
   useGameSocket(gameCode || '', handleIncomingMessage);
 
+  // Hand a one-time copy of the initial setup (player names + script) to
+  // anyone who opens the share link — not an ongoing sync. The recipient
+  // gets their own independent, fully-editable tracker seeded with this
+  // data; no characters, status, or notes are ever sent, and nothing here
+  // pushes again after the recipient's one request.
+  const sendShareMessageRef = useRef<((payload: unknown) => Promise<void>) | null>(null);
+
+  const handleShareSocketMessage = (data: unknown) => {
+    const payload = data as { type: string };
+    if (payload.type === 'notes_share_sync_request') {
+      sendShareMessageRef.current?.({
+        type: 'notes_share_state',
+        players: players.map(p => ({ id: p.id, name: p.name })),
+        scriptName,
+        scriptAuthor,
+        customScriptRoles,
+      });
+    }
+  };
+
+  const { sendMessage: sendShareMessage } = useGameSocket(!isSynced ? shareCode : '', handleShareSocketMessage);
+  useEffect(() => {
+    sendShareMessageRef.current = sendShareMessage;
+  }, [sendShareMessage]);
+
+  // Receiving side: this device opened someone else's share link. Request
+  // their setup once, apply it as our own local (independent, editable)
+  // tracker state, then forget the code — this is a one-time import, not a
+  // live connection.
+  const [incomingShareCode, setIncomingShareCode] = useState<string | null>(() => parseShareCodeFromHash());
+  const hasAppliedIncomingShare = useRef(false);
+
+  // A share link often opens in a tab that already has the tracker mounted
+  // (e.g. a previously-used browser tab) — the initial-state lookup above
+  // only runs once at mount, so it'd otherwise never notice a shareCode
+  // that appears later via a plain hash navigation (which doesn't remount
+  // this component). Re-check on every hash change too.
+  useEffect(() => {
+    const onHashChange = () => {
+      const code = parseShareCodeFromHash();
+      if (code) {
+        hasAppliedIncomingShare.current = false;
+        setIncomingShareCode(code);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+
+  const handleIncomingShareMessage = (data: unknown) => {
+    const payload = data as {
+      type: string;
+      players?: { id: string; name: string }[];
+      scriptName?: string;
+      scriptAuthor?: string;
+      customScriptRoles?: Role[] | null;
+    };
+    if (payload.type === 'notes_share_state' && !hasAppliedIncomingShare.current) {
+      hasAppliedIncomingShare.current = true;
+      if (payload.players) {
+        setPlayers(payload.players.map(p => ({ id: p.id, name: p.name, isDead: false })));
+      }
+      if (payload.scriptName) setScriptName(payload.scriptName);
+      if (payload.scriptAuthor !== undefined) setScriptAuthor(payload.scriptAuthor);
+      if (payload.customScriptRoles !== undefined) setCustomScriptRoles(payload.customScriptRoles);
+      window.history.replaceState(null, '', '#/tracker');
+      setIncomingShareCode(null);
+    }
+  };
+
+  const { sendMessage: sendIncomingShareRequest, isConnected: isIncomingShareConnected } = useGameSocket(incomingShareCode || '', handleIncomingShareMessage);
+  useEffect(() => {
+    if (!incomingShareCode || !isIncomingShareConnected) return;
+    // Ask as soon as our socket is actually subscribed (not on a blind
+    // timer — real WebSocket handshakes can take longer than a fixed
+    // delay), then keep retrying: the sharer's reply is only delivered to
+    // subscribers connected at the moment it's sent, so a single request
+    // can go unanswered if either side's socket wasn't fully up yet.
+    sendIncomingShareRequest({ type: 'notes_share_sync_request' });
+    const retry = setInterval(() => {
+      sendIncomingShareRequest({ type: 'notes_share_sync_request' });
+    }, 2000);
+    return () => clearInterval(retry);
+  }, [incomingShareCode, isIncomingShareConnected, sendIncomingShareRequest]);
+
   const closeDetailsModal = () => {
     setSelectedPlayerId(null);
     setIsSearchingRole(false);
@@ -242,6 +347,9 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       sessionStorage.removeItem('joined-name');
       setGameNotes('');
       setGameCode(null);
+      const newShareCode = Array.from({ length: 4 }, () => String.fromCharCode(65 + Math.floor(Math.random() * 26))).join('');
+      localStorage.setItem('tracker-botc-share-code', newShareCode);
+      setShareCode(newShareCode);
       window.location.hash = '#/tracker';
     }, 'Reset Tracker');
   };
@@ -480,6 +588,25 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
 
   return (
     <>
+    {incomingShareCode && (
+      <div className={cn(
+        "fixed inset-0 z-[100] flex flex-col items-center justify-center space-y-4 backdrop-blur-sm transition-all duration-300",
+        isLightModeActive ? "bg-white/95 text-clocktower-night" : "bg-gray-955/95 text-white"
+      )}>
+        <div className="relative">
+          <div className="absolute inset-0 bg-clocktower-demon/15 rounded-full blur-xl scale-125 animate-pulse" />
+          <img
+            src="/icons/summoner.svg"
+            alt="Summoning..."
+            className="w-24 h-24 object-contain animate-spin relative z-10"
+            style={{ animationDuration: '3s' }}
+          />
+        </div>
+        <p className="font-display text-lg font-bold tracking-widest uppercase animate-pulse relative z-10 mt-2 text-clocktower-blood">
+          Summoning...
+        </p>
+      </div>
+    )}
     <PageLayout
       theme={theme}
       toggleTheme={toggleTheme}
@@ -498,13 +625,21 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           <h1 className="font-display text-xl font-bold text-clocktower-blood tracking-widest uppercase">
             Game Notes
           </h1>
-          {isSynced && (
+          {isSynced ? (
             <HeaderCodeBadge
               onClick={disconnectSync}
               title="Click to disconnect from the Storyteller's live game"
               isLightModeActive={isLightModeActive}
             >
               Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
+            </HeaderCodeBadge>
+          ) : (
+            <HeaderCodeBadge
+              onClick={() => setShowShareModal(true)}
+              title="Share a copy of these player names and script to start someone else's own Game Notes"
+              isLightModeActive={isLightModeActive}
+            >
+              Share Notes
             </HeaderCodeBadge>
           )}
         </div>
@@ -519,7 +654,16 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           >
             Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{gameCode}</span>
           </HeaderCodeBadge>
-        ) : undefined
+        ) : (
+          <HeaderCodeBadge
+            mobile
+            onClick={() => setShowShareModal(true)}
+            title="Share a copy of these player names and script to start someone else's own Game Notes"
+            isLightModeActive={isLightModeActive}
+          >
+            Share Notes
+          </HeaderCodeBadge>
+        )
       }
       extraControls={
         <button
@@ -655,6 +799,15 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
       )}
     </PageLayout>
     <DialogModal {...dialogProps} isLightModeActive={isLightModeActive} />
+    {showShareModal && (
+      <RoomCodeModal
+        gameCode={shareCode}
+        joinUrl={`${window.location.origin}${window.location.pathname}#/tracker?shareCode=${shareCode}`}
+        onClose={() => setShowShareModal(false)}
+        isLightModeActive={isLightModeActive}
+        shareOnly
+      />
+    )}
 
     {/* Winner full-screen overlay */}
     {winnerTeam && (
