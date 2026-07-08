@@ -91,9 +91,14 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
   useEffect(() => {
     if (selectedPlayerId) {
-      setIsSearchingRole(true);
+      const p = players.find(player => player.id === selectedPlayerId);
+      if (p && !p.roleId) {
+        setIsSearchingRole(true);
+      } else {
+        setIsSearchingRole(false);
+      }
     }
-  }, [selectedPlayerId]);
+  }, [selectedPlayerId, players]);
 
   // Script states
   const [scriptName, setScriptName] = usePersistedField<string>(STORAGE_KEY, 'scriptName', "All Roles");
