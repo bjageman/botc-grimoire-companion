@@ -5,7 +5,7 @@ interface LoadingScreenProps {
   isLight: boolean;
 }
 
-export const LOADING_SCREENS = [
+const LOADING_SCREENS = [
   { icon: '/icons/summoner.svg', text: 'Summoning...', alt: 'Summoning...', isBlue: false },
   { icon: '/icons/organgrinder.svg', text: 'Grinding...', alt: 'Grinding...', isBlue: false },
   { icon: '/icons/clockmaker.svg', text: 'Ticking...', alt: 'Ticking...', isBlue: true },
