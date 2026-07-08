@@ -204,4 +204,41 @@ describe('PlayerDetailsModal', () => {
     expect(screen.queryByRole('combobox')).toBeNull();
     expect(screen.queryByText('Set Pronouns')).toBeNull();
   });
+
+  it('tracker details modal replaces search cancel button with sort toggle and sorts roles when clicked', () => {
+    const { container } = render(
+      <PlayerDetailsModal
+        {...defaultProps}
+        allowMultipleRoles={true}
+        isSearchingRole={true}
+        filteredModalRoles={[
+          { id: 'washerwoman', name: 'Washerwoman', team: 'townsfolk' },
+          { id: 'chef', name: 'Chef', team: 'townsfolk' },
+        ]}
+      />
+    );
+
+    // Cancel button should not be present
+    expect(container.querySelector('#detail-cancel-role-search-button')).toBeNull();
+
+    // Pronouns dropdown should not be present
+    expect(container.querySelector('#detail-player-pronouns-select')).toBeNull();
+
+    // Sort toggle checkbox should be present
+    const toggle = container.querySelector('#tracker-sort-alphabetically-checkbox');
+    expect(toggle).not.toBeNull();
+
+    // By default, roles should follow filteredModalRoles order: Washerwoman then Chef
+    let roleLabels = container.querySelectorAll('button[id^="detail-role-option-"]');
+    expect(roleLabels[0].textContent).toContain('Washerwoman');
+    expect(roleLabels[1].textContent).toContain('Chef');
+
+    // Click the sort toggle to turn it on
+    fireEvent.click(toggle!);
+
+    // Now, they should be sorted alphabetically: Chef then Washerwoman
+    roleLabels = container.querySelectorAll('button[id^="detail-role-option-"]');
+    expect(roleLabels[0].textContent).toContain('Chef');
+    expect(roleLabels[1].textContent).toContain('Washerwoman');
+  });
 });

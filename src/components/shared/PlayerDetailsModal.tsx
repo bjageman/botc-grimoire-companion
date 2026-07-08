@@ -97,6 +97,14 @@ export default function PlayerDetailsModal({
   const [editedNotes, setEditedNotes] = useBufferedField(p.id, p.notes ?? '', (id, notes) => onUpdateNotes?.(id, notes));
   const isMobile = useIsMobile();
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [sortAlphabetically, setSortAlphabetically] = useState(false);
+
+  const displayRolesList = useMemo(() => {
+    if (allowMultipleRoles && sortAlphabetically) {
+      return [...filteredModalRoles].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    return filteredModalRoles;
+  }, [filteredModalRoles, allowMultipleRoles, sortAlphabetically]);
 
   const modalNameInputRef = useRef<HTMLInputElement | null>(null);
   const { dialogProps, showAlert } = useDialog();
@@ -207,7 +215,7 @@ export default function PlayerDetailsModal({
                     {p.pronouns}
                   </p>
                 )
-              ) : onUpdatePronouns && (
+              ) : !allowMultipleRoles && onUpdatePronouns && (
                 <select
                   id="detail-player-pronouns-select"
                   value={p.pronouns || ''}
@@ -286,23 +294,47 @@ export default function PlayerDetailsModal({
                     autoFocus={!isMobile}
                   />
                 </div>
-                <button
-                  id="detail-cancel-role-search-button"
-                  type="button"
-                  onClick={() => { onSetSearchingRole(false); onSetModalRoleSearch(''); }}
-                  className={cn(
-                    'px-3 py-1.5 rounded border text-xs font-semibold transition-colors shrink-0',
-                    isLightModeActive
-                      ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
-                      : 'border-gray-700 text-gray-300 hover:bg-gray-800'
-                  )}
-                >
-                  Cancel
-                </button>
+                {allowMultipleRoles ? (
+                  <label className="flex flex-col sm:flex-row-reverse items-center gap-1 sm:gap-2 select-none cursor-pointer shrink-0">
+                    <span className={cn("text-[10px] font-semibold leading-none", isLightModeActive ? "text-gray-600" : "text-gray-400")}>
+                      Sort
+                    </span>
+                    <input
+                      id="tracker-sort-alphabetically-checkbox"
+                      type="checkbox"
+                      checked={sortAlphabetically}
+                      onChange={(e) => setSortAlphabetically(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={cn(
+                      "w-9 h-5 rounded-full transition-colors relative shrink-0",
+                      sortAlphabetically ? "bg-clocktower-blood" : (isLightModeActive ? "bg-gray-300" : "bg-gray-700")
+                    )}>
+                      <div className={cn(
+                        "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-transform shadow-sm",
+                        sortAlphabetically ? "translate-x-4" : "translate-x-0"
+                      )} />
+                    </div>
+                  </label>
+                ) : (
+                  <button
+                    id="detail-cancel-role-search-button"
+                    type="button"
+                    onClick={() => { onSetSearchingRole(false); onSetModalRoleSearch(''); }}
+                    className={cn(
+                      'px-3 py-1.5 rounded border text-xs font-semibold transition-colors shrink-0',
+                      isLightModeActive
+                        ? 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                        : 'border-gray-700 text-gray-300 hover:bg-gray-800'
+                    )}
+                  >
+                    Cancel
+                  </button>
+                )}
               </div>
               <RoleList
                 hasRole={allowMultipleRoles ? !!(p.roleIds && p.roleIds.length > 0) : (p.isTheDrunk || p.isTheMarionette || p.isTheLunatic || !!p.roleId)}
-                roles={filteredModalRoles}
+                roles={displayRolesList}
                 players={players}
                 currentPlayerId={p.id}
                 isLightModeActive={isLightModeActive}
