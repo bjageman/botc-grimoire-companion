@@ -23,6 +23,12 @@ type Phase = 'setup' | 'game';
 
 const STORAGE_KEY = 'player-tracker-botc-game';
 
+function parseShareCodeFromHash(): string | null {
+  const hash = window.location.hash;
+  const queryStr = hash.includes('?') ? hash.split('?')[1] : window.location.search;
+  return new URLSearchParams(queryStr).get('shareCode');
+}
+
 interface SetupProps {
   theme: 'light' | 'dark';
   toggleTheme: () => void;
@@ -236,12 +242,25 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
   // their setup once, apply it as our own local (independent, editable)
   // tracker state, then forget the code — this is a one-time import, not a
   // live connection.
-  const [incomingShareCode, setIncomingShareCode] = useState<string | null>(() => {
-    const hash = window.location.hash;
-    const queryStr = hash.includes('?') ? hash.split('?')[1] : window.location.search;
-    return new URLSearchParams(queryStr).get('shareCode');
-  });
+  const [incomingShareCode, setIncomingShareCode] = useState<string | null>(() => parseShareCodeFromHash());
   const hasAppliedIncomingShare = useRef(false);
+
+  // A share link often opens in a tab that already has the tracker mounted
+  // (e.g. a previously-used browser tab) — the initial-state lookup above
+  // only runs once at mount, so it'd otherwise never notice a shareCode
+  // that appears later via a plain hash navigation (which doesn't remount
+  // this component). Re-check on every hash change too.
+  useEffect(() => {
+    const onHashChange = () => {
+      const code = parseShareCodeFromHash();
+      if (code) {
+        hasAppliedIncomingShare.current = false;
+        setIncomingShareCode(code);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
 
   const handleIncomingShareMessage = (data: unknown) => {
     const payload = data as {
@@ -578,13 +597,13 @@ export default function PlayerTracker({ theme, toggleTheme }: SetupProps) {
           <div className="absolute inset-0 bg-clocktower-demon/15 rounded-full blur-xl scale-125 animate-pulse" />
           <img
             src="/icons/summoner.svg"
-            alt="Importing..."
+            alt="Summoning..."
             className="w-24 h-24 object-contain animate-spin relative z-10"
             style={{ animationDuration: '3s' }}
           />
         </div>
         <p className="font-display text-lg font-bold tracking-widest uppercase animate-pulse relative z-10 mt-2 text-clocktower-blood">
-          Importing Setup...
+          Summoning...
         </p>
       </div>
     )}
