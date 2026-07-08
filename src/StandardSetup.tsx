@@ -254,6 +254,12 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     }, 'Reset Time');
   };
 
+  const findRole = (roleId?: string) => {
+    if (!roleId) return undefined;
+    const baseRoles = customScriptRoles || (rolesData as Role[]);
+    return baseRoles.find(r => r.id === roleId) || (rolesData as Role[]).find(r => r.id === roleId);
+  };
+
   // Drag and drop states
   const {
     draggedIndex,
@@ -567,7 +573,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
   const updatePlayerRole = (id: string, roleId: string) => {
     const player = players.find(p => p.id === id);
-    const oldRole = player?.roleId ? (customScriptRoles || (rolesData as Role[])).find(r => r.id === player.roleId) : undefined;
+    const oldRole = player?.roleId ? findRole(player.roleId) : undefined;
     const defaultEvil = oldRole ? (oldRole.team === 'minion' || oldRole.team === 'demon') : false;
     const currentAlignment = player 
       ? (player.isEvil !== undefined 
@@ -581,7 +587,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
     if (phase === 'game') {
       if (player && player.roleId !== (roleId || undefined)) {
-        const newRole = (customScriptRoles || (rolesData as Role[])).find(r => r.id === roleId);
+        const newRole = findRole(roleId);
         if (oldRole && newRole) {
           addLogEntry(`${player.name} changed from ${oldRole.name} to ${newRole.name}`);
         } else if (newRole) {
@@ -657,14 +663,14 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   const togglePlayerEvil = (id: string) => {
     const player = players.find(p => p.id === id);
     if (player) {
-      const roleObj = (customScriptRoles || (rolesData as Role[])).find(r => r.id === player.roleId);
+      const roleObj = findRole(player.roleId);
       const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
       const currentEvil = player.isEvil !== undefined ? player.isEvil : defaultEvil;
       addLogEntry(`${player.name} marked as ${!currentEvil ? 'Evil' : 'Good'}`);
     }
     setPlayers(prev => prev.map(p => {
       if (p.id === id) {
-        const roleObj = (customScriptRoles || (rolesData as Role[])).find(r => r.id === p.roleId);
+        const roleObj = findRole(p.roleId);
         const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
         const currentEvil = p.isEvil !== undefined ? p.isEvil : defaultEvil;
         return { ...p, isEvil: !currentEvil };
@@ -1015,7 +1021,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
               const roleLines = players
                 .filter(pl => pl.roleId)
                 .map(pl => {
-                  const r = (customScriptRoles || (rolesData as Role[])).find(ro => ro.id === pl.roleId);
+                  const r = findRole(pl.roleId);
                   const modifiers = [
                     pl.isTheLunatic && 'Lunatic',
                     pl.isTheMarionette && 'Marionette',
@@ -1107,7 +1113,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
             setDemonBluffs(bluffs);
             const filled = bluffs.filter(Boolean);
             if (filled.length === 3) {
-              const names = filled.map(id => (customScriptRoles || (rolesData as Role[])).find(r => r.id === id)?.name ?? id);
+              const names = filled.map(id => findRole(id)?.name ?? id);
               addLogEntry(`Demon bluffs set: ${names.join(', ')}`);
             }
           }}
