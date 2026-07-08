@@ -277,6 +277,27 @@ export function getValidationSummary(players: Player[], allRoles: Role[] = roles
       }
     }
   }
+  // Check for characters not on the script
+  const missingRoleIds = new Set<string>();
+  for (const p of players) {
+    if (p.roleId) {
+      if (!allRoles.some(r => r.id === p.roleId)) {
+        missingRoleIds.add(p.roleId);
+      }
+      const trueRoleId = p.isTheMarionette ? 'marionette' :
+                         p.isTheDrunk ? 'drunk' :
+                         p.isTheLunatic ? 'lunatic' :
+                         null;
+      if (trueRoleId && !allRoles.some(r => r.id === trueRoleId)) {
+        missingRoleIds.add(trueRoleId);
+      }
+    }
+  }
+  for (const roleId of missingRoleIds) {
+    const resolved = (rolesData as Role[]).find(r => r.id === roleId);
+    failures.push(`${resolved?.name ?? roleId} is not on the script.`);
+  }
+
   
   const jinxWarnings = [...warnings, ...failures];
   const isValid = isDemonValid && isMinionValid && isOutsiderValid && isTownsfolkValid && jinxWarnings.length === 0;
