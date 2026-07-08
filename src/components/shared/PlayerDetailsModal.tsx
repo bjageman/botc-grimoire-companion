@@ -356,7 +356,7 @@ export default function PlayerDetailsModal({
                               type="button"
                               onClick={() => setSelectedRole(rObj)}
                               title={`${rObj.name} - View Details`}
-                              className="w-full h-full relative transition-all duration-200 hover:scale-105 active:scale-95 rounded-full shadow-md hover:shadow-lg focus:outline-none cursor-pointer"
+                              className="w-full h-full relative transition-all duration-200 hover:scale-105 active:scale-95 rounded-full shadow-md hover:shadow-lg outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 cursor-pointer"
                             >
                               <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-md absolute inset-0 z-10">
                                 <defs>
@@ -396,7 +396,7 @@ export default function PlayerDetailsModal({
                               }}
                               title="Remove character"
                               className={cn(
-                                "absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow border text-xs font-bold z-30 cursor-pointer hover:scale-110 active:scale-95",
+                                "absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow border text-xs font-bold z-30 cursor-pointer hover:scale-110 active:scale-95 outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0",
                                 isLightModeActive
                                   ? "bg-white border-gray-300 text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                                   : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700"
@@ -475,7 +475,7 @@ export default function PlayerDetailsModal({
                                 setSelectedRole(rObj);
                               }}
                               title={`${rObj.name} - View Details`}
-                              className="w-full h-full relative transition-all duration-200 hover:scale-105 active:scale-95 rounded-full shadow-md hover:shadow-lg focus:outline-none cursor-pointer"
+                              className="w-full h-full relative transition-all duration-200 hover:scale-105 active:scale-95 rounded-full shadow-md hover:shadow-lg outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 cursor-pointer"
                             >
                               <svg viewBox="0 0 200 200" className="w-full h-full drop-shadow-xl absolute inset-0 z-10">
                                 <defs>
@@ -515,7 +515,7 @@ export default function PlayerDetailsModal({
                               }}
                               title="Remove character"
                               className={cn(
-                                "absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow border text-xs font-bold z-30 cursor-pointer hover:scale-110 active:scale-95",
+                                "absolute -top-1.5 -left-1.5 w-6 h-6 rounded-full flex items-center justify-center transition-all shadow border text-xs font-bold z-30 cursor-pointer hover:scale-110 active:scale-95 outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0",
                                 isLightModeActive
                                   ? "bg-white border-gray-300 text-gray-500 hover:text-gray-800 hover:bg-gray-50"
                                   : "bg-gray-800 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-700"
