@@ -26,6 +26,7 @@ const TEAMS = [
 export default function ScriptCharactersModal({ isOpen, onClose, scriptName, roles, scriptAuthor, isLightModeActive }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [sortAlphabetically, setSortAlphabetically] = useState(false);
 
   useScrollLock(isOpen);
 
@@ -34,7 +35,7 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (selectedRole) setSelectedRole(null);
-        else { onClose(); setSearchTerm(''); }
+        else { onClose(); setSearchTerm(''); setSortAlphabetically(false); }
       }
     };
     window.addEventListener('keydown', handler);
@@ -54,14 +55,19 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
     return roles.filter(r => r.name.toLowerCase().includes(term) || r.team.toLowerCase().includes(term));
   }, [roles, searchTerm]);
 
-  const byTeam = useMemo(() =>
-    Object.fromEntries(TEAMS.map(t => [t.key, filteredRoles.filter(r => r.team === t.key)])),
-    [filteredRoles]
-  );
+  const byTeam = useMemo(() => {
+    const grouped = Object.fromEntries(TEAMS.map(t => [t.key, filteredRoles.filter(r => r.team === t.key)]));
+    if (sortAlphabetically) {
+      for (const key of Object.keys(grouped)) {
+        grouped[key].sort((a, b) => a.name.localeCompare(b.name));
+      }
+    }
+    return grouped;
+  }, [filteredRoles, sortAlphabetically]);
 
   const isEmpty = TEAMS.every(t => byTeam[t.key].length === 0);
 
-  const handleClose = () => { onClose(); setSearchTerm(''); };
+  const handleClose = () => { onClose(); setSearchTerm(''); setSortAlphabetically(false); };
 
   if (!isOpen) return null;
 
@@ -97,21 +103,35 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
             </button>
           </div>
 
-          <div className="flex items-center rounded-lg px-3 py-2 text-sm mb-4 border bg-white border-gray-300 focus-within:border-clocktower-blood">
-            <Search size={16} className="text-gray-500 mr-2 flex-shrink-0" />
-            <input
-              id="script-search-input"
-              type="text"
-              placeholder="Search character by name or type..."
-              className="bg-transparent flex-1 outline-none text-xs text-gray-900 placeholder-gray-400 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            {searchTerm && (
-              <button type="button" onClick={() => setSearchTerm('')} className="text-gray-500 hover:text-gray-700">
-                <X size={14} />
-              </button>
-            )}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4 items-stretch sm:items-center">
+            <div className="flex-1 flex items-center rounded-lg px-3 py-2 text-sm border bg-white border-gray-300 focus-within:border-clocktower-blood">
+              <Search size={16} className="text-gray-500 mr-2 flex-shrink-0" />
+              <input
+                id="script-search-input"
+                type="text"
+                placeholder="Search character by name or type..."
+                className="bg-transparent flex-1 outline-none text-xs text-gray-900 placeholder-gray-400 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              {searchTerm && (
+                <button type="button" onClick={() => setSearchTerm('')} className="text-gray-500 hover:text-gray-700">
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+            <label className="flex items-center gap-2 select-none cursor-pointer shrink-0 py-1">
+              <input
+                id="script-sort-alphabetically-checkbox"
+                type="checkbox"
+                checked={sortAlphabetically}
+                onChange={(e) => setSortAlphabetically(e.target.checked)}
+                className="rounded border-gray-300 text-clocktower-blood focus:ring-clocktower-blood w-4 h-4 cursor-pointer"
+              />
+              <span className={cn("text-xs font-medium", isLightModeActive ? "text-gray-600" : "text-gray-400")}>
+                Sort Alphabetically
+              </span>
+            </label>
           </div>
 
           <div className="overflow-y-auto overscroll-contain flex-1 space-y-5 pr-1 select-none">
