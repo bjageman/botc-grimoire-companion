@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, fireEvent, act, within } from '@testing-library/react';
+import { render, fireEvent, act, within, waitFor } from '@testing-library/react';
 import { useEffect } from 'react';
 import StandardSetup from './StandardSetup';
 import WhaleBucket from './WhaleBucket';
@@ -830,10 +830,11 @@ describe('Storyteller Grimoire Bug Fixes', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
     });
 
-    // Enter character search/selection mode
+    // Enter character search/selection mode if not already there
     const changeRoleBtn = storyteller.container.querySelector('#detail-change-role-button');
-    expect(changeRoleBtn).not.toBeNull();
-    fireEvent.click(changeRoleBtn!);
+    if (changeRoleBtn) {
+      fireEvent.click(changeRoleBtn);
+    }
 
     // Update Alice's role to Empath
     const empathBtn = storyteller.container.querySelector('#detail-role-option-empath');
@@ -850,6 +851,65 @@ describe('Storyteller Grimoire Bug Fixes', () => {
     expect(alice).toBeDefined();
     expect(alice!.roleId).toBe('empath');
     expect(alice!.isEvil).toBe(true);
+
+    storyteller.unmount();
+  });
+
+  it('storyteller details modal opens conditionally in search mode only if player has no role assigned', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', isDead: false, roleId: 'washerwoman' },
+      { id: 'p2', name: 'Bob', isDead: false, roleId: undefined }
+    ];
+    
+    seedPrimary({
+      players: PLAYERS,
+      phase: 'game',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    });
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // 1. Open details modal for Alice (has character 'washerwoman')
+    const aliceRow = storyteller.container.querySelector('#ledger-player-p1');
+    expect(aliceRow).not.toBeNull();
+    
+    await act(async () => {
+      fireEvent.click(aliceRow!);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    // Should NOT be in search mode initially (change role button is visible, search input is not present)
+    const changeRoleBtnAlice = storyteller.container.querySelector('#detail-change-role-button');
+    expect(changeRoleBtnAlice).not.toBeNull();
+    const searchInputAlice = storyteller.container.querySelector('#detail-role-search-input');
+    expect(searchInputAlice).toBeNull();
+
+    // Close details modal
+    const closeBtn = storyteller.container.querySelector('[aria-label="Close modal"]');
+    if (closeBtn) {
+      await act(async () => {
+        fireEvent.click(closeBtn);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      });
+    }
+
+    // 2. Open details modal for Bob (has no character assigned)
+    const bobRow = storyteller.container.querySelector('#ledger-player-p2');
+    expect(bobRow).not.toBeNull();
+    
+    await act(async () => {
+      fireEvent.click(bobRow!);
+    });
+
+    await waitFor(() => {
+      const searchInputBob = storyteller.container.querySelector('#detail-role-search-input');
+      expect(searchInputBob).not.toBeNull();
+    });
+
+    const changeRoleBtnBob = storyteller.container.querySelector('#detail-change-role-button');
+    expect(changeRoleBtnBob).toBeNull();
 
     storyteller.unmount();
   });
@@ -1073,7 +1133,7 @@ describe('Storyteller Grimoire Bug Fixes', () => {
       { id: 'p2', name: 'Bob', roleId: 'washerwoman' },
       { id: 'p3', name: 'Carol', roleId: 'empath' },
       { id: 'p4', name: 'Dave', roleId: 'poisoner' },
-      { id: 'p5', name: 'Eve', roleId: 'butler' }
+      { id: 'p5', name: 'Eve', roleId: 'monk' }
     ];
     
     localStorage.setItem('standard-botc-game', JSON.stringify({
@@ -1207,6 +1267,48 @@ describe('Storyteller Grimoire Bug Fixes', () => {
     const sidebarRoleNames = Array.from(storyteller.container.querySelectorAll('.truncate')).map(el => el.textContent);
     expect(sidebarRoleNames).toContain('Washerwoman');
     expect(sidebarRoleNames).not.toContain('Marionette');
+
+    storyteller.unmount();
+  });
+
+  it('disables Open Grimoire when there are failures, and enables it when override failures checkbox is checked', async () => {
+    const PLAYERS = [
+      { id: 'p1', name: 'Alice', roleId: 'imp' },
+      { id: 'p2', name: 'Bob', roleId: 'washerwoman' },
+      { id: 'p3', name: 'Carol', roleId: 'empath' },
+      { id: 'p4', name: 'Dave', roleId: 'poisoner' },
+      { id: 'p5', name: 'Eve', roleId: 'imp' } // Duplicate Imp!
+    ];
+    
+    localStorage.setItem('standard-botc-game', JSON.stringify({
+      players: PLAYERS,
+      phase: 'setup',
+      timeOfDay: 'night',
+      dayNumber: 1,
+    }));
+
+    window.location.hash = '#/standard';
+    const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
+
+    // Retrieve the Open Grimoire button
+    const openGrimBtn = storyteller.container.querySelector('#open-grimoire-button');
+    expect(openGrimBtn).not.toBeNull();
+    // It should be disabled because there is a duplicate Imp (which is a failure)
+    expect(openGrimBtn).toBeDisabled();
+
+    // Verify the override checkbox is present
+    const overrideCheckbox = storyteller.container.querySelector('#override-failures-checkbox') as HTMLInputElement;
+    expect(overrideCheckbox).not.toBeNull();
+    expect(overrideCheckbox.checked).toBe(false);
+
+    // Check the checkbox
+    await act(async () => {
+      fireEvent.click(overrideCheckbox);
+      await new Promise(resolve => setTimeout(resolve, 50));
+    });
+
+    // The button should now be enabled
+    expect(openGrimBtn).not.toBeDisabled();
 
     storyteller.unmount();
   });

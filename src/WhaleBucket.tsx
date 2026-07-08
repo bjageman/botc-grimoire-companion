@@ -21,6 +21,7 @@ import DialogModal from './components/shared/DialogModal';
 import RoomCodeModal from './components/shared/RoomCodeModal';
 import HeaderCodeBadge from './components/shared/HeaderCodeBadge';
 import ResetGameModal from './components/shared/ResetGameModal';
+import LoadingScreen from './components/shared/LoadingScreen';
 import { useDialog } from './hooks/useDialog';
 
 export type Player = Omit<BasePlayer, 'preferences'> & {
@@ -169,10 +170,20 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
   const [isSearchingRole, setIsSearchingRole] = useState(false);
   const [modalRoleSearch, setModalRoleSearch] = useState('');
 
+  const [prevSelectedPlayerId, setPrevSelectedPlayerId] = useState<string | null>(null);
+  if (selectedPlayerId !== prevSelectedPlayerId) {
+    setPrevSelectedPlayerId(selectedPlayerId);
+    if (selectedPlayerId) {
+      const p = players.find(player => player.id === selectedPlayerId);
+      setIsSearchingRole(p ? !p.roleId : false);
+    }
+  }
+
   // Drag and drop states
   const {
     draggedIndex,
     dragOverIndex,
+    hoverSide,
     handleMouseDown,
     handleDragStart,
     handleDragOver,
@@ -367,12 +378,13 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
     setExcludedRoleIds, setDemonBluffs, setReminderTokens, setCheckedItems, setRotationOffset
   ]);
 
-  useStorytellerSync({
+  const { hasReceivedSync } = useStorytellerSync({
     isSecondary,
     syncCode,
     localState: syncState,
     onApplySync: handleApplySync,
   });
+  const showLoading = isSecondary && !hasReceivedSync;
 
   // Save to localStorage
   useEffect(() => {
@@ -920,6 +932,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
 
   return (
     <>
+    {showLoading && <LoadingScreen isLight={isLightModeActive} />}
     <PageLayout
       theme={theme}
       toggleTheme={toggleTheme}
@@ -946,7 +959,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
               title="Click to disconnect secondary storyteller device"
               isLightModeActive={isLightModeActive}
             >
-              Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
+              Syncing with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
             </HeaderCodeBadge>
           ) : phase !== 'game' ? (
             <HeaderCodeBadge
@@ -990,7 +1003,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
             title="Click to disconnect secondary storyteller device"
             isLightModeActive={isLightModeActive}
           >
-            Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
+            Syncing with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
           </HeaderCodeBadge>
         ) : phase !== 'game' ? (
           <HeaderCodeBadge
@@ -1024,6 +1037,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           allowTravelers={allowTravelers}
           draggedIndex={draggedIndex}
           dragOverIndex={dragOverIndex}
+          hoverSide={hoverSide}
           handleMouseDown={handleMouseDown}
           handleDragStart={handleDragStart}
           handleDragOver={handleDragOver}
@@ -1088,6 +1102,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           setNewTravelerRoleId={setNewTravelerRoleId}
           onResetDead={resetDead}
           onResetTime={resetTime}
+          remotePlayerIds={remotePlayerIds}
           travelerCardTitle="Add Traveler (Late Arrival)"
           demonBluffs={demonBluffs}
           onUpdateDemonBluffs={(bluffs) => {
@@ -1151,6 +1166,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           removePlayer={removePlayer}
           togglePreference={togglePreference}
           autoFillPlayerPreferences={autoFillPlayerPreferences}
+          onUpdatePronouns={updatePlayerPronouns}
           onClose={() => setActivePreferencePlayerId(null)}
           isSecondary={isSecondary}
         />
@@ -1168,6 +1184,7 @@ export default function WhaleBucket({ theme, toggleTheme }: SetupProps) {
           togglePlayerTheMarionette={togglePlayerTheMarionette}
           togglePlayerTheLunatic={togglePlayerTheLunatic}
           togglePlayerTheLilMonsta={togglePlayerTheLilMonsta}
+          onUpdatePronouns={updatePlayerPronouns}
           isLightModeActive={isLightModeActive}
           onClose={() => { setActiveDraftPlayerId(null); setSearchTerm(''); }}
         />

@@ -505,6 +505,168 @@ describe('performStandardAssignment', () => {
         expect(realTownsfolk).toHaveLength(3);
       }
     });
+
+    it('does not add duplicate characters when Godfather or setup adjustments require more townsfolk than selected', () => {
+      const godfather: Role = { id: 'godfather', name: 'Godfather', team: 'minion' };
+      const baron: Role = { id: 'baron', name: 'Baron', team: 'minion' };
+      const imp: Role = { id: 'imp', name: 'Imp', team: 'demon' };
+      const drunkRole: Role = { id: 'drunk', name: 'Drunk', team: 'outsider' };
+      const recluse: Role = { id: 'recluse', name: 'Recluse', team: 'outsider' };
+      const butler: Role = { id: 'butler', name: 'Butler', team: 'outsider' };
+
+      const selectedTownsfolk = baseTownsfolk.slice(0, 6); // 6 townsfolk
+      const selectedRoles = [
+        ...selectedTownsfolk,
+        drunkRole,
+        recluse,
+        butler,
+        godfather,
+        baron,
+        imp
+      ];
+
+      // Full script has more townsfolk
+      const fullScript = [
+        ...baseTownsfolk,
+        drunkRole,
+        recluse,
+        butler,
+        godfather,
+        baron,
+        imp
+      ];
+
+      for (let trial = 0; trial < 100; trial++) {
+        const players: Player[] = Array.from({ length: 10 }, (_, i) => ({ id: String(i), name: `P${i}`, isDead: false }));
+        // Pass selectedRoles as the active roles to assign, and fullScript as the fallback pool
+        const result = performStandardAssignment(players, selectedRoles, [], fullScript);
+        if (!result) continue;
+
+        expect(result).toHaveLength(10);
+        
+        // Assert no duplicate character tokens are in play. 
+        // Note: For Drunk, we must check their faked roleId, not 'drunk' itself.
+        const assignedRoleIds = result.map(p => p.roleId);
+        const uniqueRoleIds = new Set(assignedRoleIds);
+        expect(uniqueRoleIds.size).toBe(10);
+      }
+    });
+
+    it('locks Godfather to +1 outsider modifier when -1 would exceed the available selected Townsfolk (10-player setup with Baron and Drunk)', () => {
+      const godfather: Role = { id: 'godfather', name: 'Godfather', team: 'minion' };
+      const baron: Role = { id: 'baron', name: 'Baron', team: 'minion' };
+      const imp: Role = { id: 'imp', name: 'Imp', team: 'demon' };
+      const drunkRole: Role = { id: 'drunk', name: 'Drunk', team: 'outsider' };
+      const recluse: Role = { id: 'recluse', name: 'Recluse', team: 'outsider' };
+      const butler: Role = { id: 'butler', name: 'Butler', team: 'outsider' };
+
+      const selectedTownsfolk = baseTownsfolk.slice(0, 6); // Only 6 selected Townsfolk
+      const selectedRoles = [
+        ...selectedTownsfolk,
+        drunkRole,
+        recluse,
+        butler,
+        godfather,
+        baron,
+        imp
+      ];
+
+      for (let trial = 0; trial < 100; trial++) {
+        const players: Player[] = Array.from({ length: 10 }, (_, i) => ({ id: String(i), name: `P${i}`, isDead: false }));
+        const result = performStandardAssignment(players, selectedRoles, []);
+        if (!result) continue;
+
+        expect(result).toHaveLength(10);
+
+        const recluseInPlay = result.some(p => p.roleId === 'recluse');
+        const butlerInPlay = result.some(p => p.roleId === 'butler');
+        
+        expect(recluseInPlay).toBe(true);
+        expect(butlerInPlay).toBe(true);
+
+        const drunkPlayer = result.find(p => p.isTheDrunk);
+        expect(drunkPlayer).toBeDefined();
+
+        const assignedRoleIds = result.map(p => p.roleId);
+        const uniqueRoleIds = new Set(assignedRoleIds);
+        expect(uniqueRoleIds.size).toBe(10);
+      }
+    });
+
+    it('locks Hermit to 0 modifier (no adjustment) when -1 would exceed the available selected Townsfolk (6-player setup with only 3 Townsfolk selected)', () => {
+      const hermit: Role = { id: 'hermit', name: 'Hermit', team: 'outsider' };
+      const poisoner: Role = { id: 'poisoner', name: 'Poisoner', team: 'minion' };
+      const imp: Role = { id: 'imp', name: 'Imp', team: 'demon' };
+
+      const selectedTownsfolk = baseTownsfolk.slice(0, 3); // Only 3 Townsfolk
+      const selectedRoles = [
+        ...selectedTownsfolk,
+        hermit,
+        poisoner,
+        imp
+      ];
+
+      for (let trial = 0; trial < 100; trial++) {
+        const players: Player[] = Array.from({ length: 6 }, (_, i) => ({ id: String(i), name: `P${i}`, isDead: false }));
+        const result = performStandardAssignment(players, selectedRoles, []);
+        if (!result) continue;
+
+        expect(result).toHaveLength(6);
+
+        // Since -1 modifier would require 4 Townsfolk (but we only have 3), it must lock Hermit to 0.
+        // Therefore, Hermit MUST be assigned and in play!
+        const hermitInPlay = result.some(p => p.roleId === 'hermit');
+        expect(hermitInPlay).toBe(true);
+
+        const assignedRoleIds = result.map(p => p.roleId);
+        const uniqueRoleIds = new Set(assignedRoleIds);
+        expect(uniqueRoleIds.size).toBe(6);
+      }
+    });
+
+    it('should assign different traveler characters to travelers when player count is > 15', () => {
+      const players: Player[] = Array.from({ length: 18 }, (_, i) => ({ id: String(i), name: `P${i}`, isDead: false }));
+      const travelerRoles: Role[] = [
+        { id: 'beggar', name: 'Beggar', team: 'traveler' },
+        { id: 'barista', name: 'Barista', team: 'traveler' },
+        { id: 'harlot', name: 'Harlot', team: 'traveler' },
+        { id: 'butcher', name: 'Butcher', team: 'traveler' },
+      ];
+      const selectionRoles = [...mockScriptRoles, ...travelerRoles];
+      const result = performStandardAssignment(players, mockScriptRoles, selectionRoles);
+      expect(result).not.toBeNull();
+      if (!result) return;
+
+      const assignedTravelers = result.filter(p => travelerRoles.some(t => t.id === p.roleId));
+      expect(assignedTravelers.length).toBe(3);
+
+      const assignedTravelerRoleIds = assignedTravelers.map(p => p.roleId);
+      const uniqueTravelerRoleIds = new Set(assignedTravelerRoleIds);
+      expect(uniqueTravelerRoleIds.size).toBe(3);
+    });
+
+    it('should keep a manually assigned traveler as a traveler when auto-assign is run', () => {
+      const players: Player[] = Array.from({ length: 8 }, (_, i) => ({ id: String(i), name: `P${i}`, isDead: false }));
+      players[3].roleId = 'gunslinger';
+
+      const travelerRoles: Role[] = [
+        { id: 'beggar', name: 'Beggar', team: 'traveler' },
+        { id: 'gunslinger', name: 'Gunslinger', team: 'traveler' },
+      ];
+      const selectionRoles = [...mockScriptRoles, ...travelerRoles];
+      const result = performStandardAssignment(players, mockScriptRoles, selectionRoles);
+      expect(result).not.toBeNull();
+      if (!result) return;
+
+      const p3 = result.find(p => p.id === '3');
+      expect(p3).toBeDefined();
+      expect(p3?.roleId).toBe('gunslinger');
+
+      const assignedTravelers = result.filter(p => travelerRoles.some(t => t.id === p.roleId));
+      expect(assignedTravelers.length).toBe(1);
+    });
   });
 });
+
+
 

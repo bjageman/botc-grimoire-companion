@@ -2,9 +2,10 @@ import { useScrollLock } from '../../hooks/useScrollLock';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useBufferedField } from '../../hooks/useBufferedField';
 import { Search, Trash2 } from 'lucide-react';
-import { cn } from '../../utils/cn';
-import type { Player, Role } from '../../types';
 import rolesData from '../../roles.json';
+import { cn } from '../../utils/cn';
+import { roleIconFallback } from '../../utils/roleIcon';
+import type { Player, Role } from '../../types';
 
 interface SetupPlayerEditModalProps {
   activePlayerId: string;
@@ -21,6 +22,7 @@ interface SetupPlayerEditModalProps {
   togglePlayerTheMarionette: (id: string) => void;
   togglePlayerTheLunatic: (id: string) => void;
   togglePlayerTheLilMonsta: (id: string) => void;
+  onUpdatePronouns?: (id: string, pronouns: string) => void;
   isSecondary?: boolean;
   onClose: () => void;
 }
@@ -32,6 +34,8 @@ const TEAM_ORDER: Record<string, number> = {
   demon: 4,
   traveler: 5,
 };
+
+const PRONOUN_OPTIONS = ['He/Him', 'She/Her', 'They/Them', 'Ask Me'];
 
 export default function SetupPlayerEditModal({
   activePlayerId,
@@ -48,6 +52,7 @@ export default function SetupPlayerEditModal({
   togglePlayerTheMarionette,
   togglePlayerTheLunatic,
   togglePlayerTheLilMonsta,
+  onUpdatePronouns,
   onClose,
   isSecondary,
 }: SetupPlayerEditModalProps) {
@@ -61,7 +66,7 @@ export default function SetupPlayerEditModal({
 
   if (!player) return null;
 
-  const roleObj = (rolesData as Role[]).find(r => r.id === player.roleId);
+  const roleObj = selectionRoles.find(r => r.id === player.roleId) || (rolesData as Role[]).find(r => r.id === player.roleId);
 
   const hasDrunkInScript = !customScriptRoles || customScriptRoles.some(r => r.id === 'drunk');
   const hasMarionetteInScript = !customScriptRoles || customScriptRoles.some(r => r.id === 'marionette');
@@ -71,8 +76,8 @@ export default function SetupPlayerEditModal({
   const N = players.length;
   const leftNeighbor = players[(index - 1 + N) % N];
   const rightNeighbor = players[(index + 1) % N];
-  const leftRoleObj = (rolesData as Role[]).find(r => r.id === leftNeighbor?.roleId);
-  const rightRoleObj = (rolesData as Role[]).find(r => r.id === rightNeighbor?.roleId);
+  const leftRoleObj = selectionRoles.find(r => r.id === leftNeighbor?.roleId) || (rolesData as Role[]).find(r => r.id === leftNeighbor?.roleId);
+  const rightRoleObj = selectionRoles.find(r => r.id === rightNeighbor?.roleId) || (rolesData as Role[]).find(r => r.id === rightNeighbor?.roleId);
   const isNextToDemon = (leftRoleObj?.team === 'demon' && !leftNeighbor?.isTheLunatic)
     || (rightRoleObj?.team === 'demon' && !rightNeighbor?.isTheLunatic);
 
@@ -160,6 +165,27 @@ export default function SetupPlayerEditModal({
             );
           })()}
         </div>
+
+        {onUpdatePronouns && (
+          <select
+            id="setup-player-pronouns-select"
+            value={player.pronouns || ''}
+            onChange={(e) => onUpdatePronouns(player.id, e.target.value)}
+            className={cn(
+              'rounded px-2 py-1.5 text-xs font-medium border focus:outline-none focus:border-clocktower-blood transition-colors cursor-pointer self-start',
+              isLightModeActive
+                ? 'bg-white border-gray-300 text-gray-600'
+                : 'bg-gray-955 border-gray-800 text-gray-400'
+            )}
+          >
+            <option value="" className={isLightModeActive ? 'bg-white text-gray-600' : 'bg-gray-955 text-gray-400'}>Pronouns</option>
+            {PRONOUN_OPTIONS.map(option => (
+              <option key={option} value={option} className={isLightModeActive ? 'bg-white text-clocktower-night' : 'bg-gray-955 text-gray-200'}>
+                {option}
+              </option>
+            ))}
+          </select>
+        )}
 
         {(canBeDrunk || canBeMarionette || canBeLunatic || canBeLilMonsta) && (
           <div className="flex flex-wrap justify-end gap-1.5">
@@ -292,10 +318,11 @@ export default function SetupPlayerEditModal({
                 <div className="flex items-center min-w-0 flex-1 gap-1.5 mr-2">
                   <span className="w-5 h-5 bg-white rounded-full flex items-center justify-center shrink-0">
                     <img
+                      key={role.id}
                       src={`/icons/${role.id}.svg`}
                       alt={role.name}
                       className="w-3.5 h-3.5 object-contain"
-                      onError={(e) => { e.currentTarget.parentElement!.style.display = 'none'; }}
+                      onError={roleIconFallback(role, role.team === 'minion' || role.team === 'demon')}
                     />
                   </span>
                   <span className={cn(

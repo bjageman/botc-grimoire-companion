@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getValidationSummary } from './validationSummary';
-import type { Player } from '../types';
+import type { Player, Role } from '../types';
 
 describe('validationSummary utility', () => {
   it('should return null for empty player list', () => {
@@ -264,4 +264,294 @@ describe('validationSummary utility', () => {
       }
     });
   });
+
+  describe('warnings vs failures split', () => {
+    const basePlayers: Player[] = [
+      { id: '1', name: 'Player 1', roleId: 'washerwoman', isDead: false },
+      { id: '2', name: 'Player 2', roleId: 'librarian', isDead: false },
+      { id: '3', name: 'Player 3', roleId: 'investigator', isDead: false },
+      { id: '4', name: 'Player 4', roleId: 'chef', isDead: false },
+      { id: '5', name: 'Player 5', roleId: 'poisoner', isDead: false },
+      { id: '6', name: 'Player 6', roleId: 'imp', isDead: false },
+    ];
+
+    it('puts Huntsman/Damsel and Choirboy/King setup issues under failures, not warnings', () => {
+      const players: Player[] = [...basePlayers, { id: '7', name: 'Gina', roleId: 'huntsman', isDead: false }];
+      const summary = getValidationSummary(players);
+      expect(summary).not.toBeNull();
+      if (summary) {
+        expect(summary.failures).toContain('Huntsman in play, but no Damsel assigned.');
+        expect(summary.warnings).not.toContain('Huntsman in play, but no Damsel assigned.');
+      }
+
+      const players2: Player[] = [...basePlayers, { id: '7', name: 'Gina', roleId: 'choirboy', isDead: false }];
+      const summary2 = getValidationSummary(players2);
+      expect(summary2).not.toBeNull();
+      if (summary2) {
+        expect(summary2.failures).toContain('Choirboy in play, but no King assigned.');
+        expect(summary2.warnings).not.toContain('Choirboy in play, but no King assigned.');
+      }
+    });
+
+    it('puts Alchemist and custom roles under warnings, not failures', () => {
+      const players: Player[] = [...basePlayers, { id: '7', name: 'Gina', roleId: 'alchemist', isDead: false }];
+      const summary = getValidationSummary(players);
+      expect(summary).not.toBeNull();
+      if (summary) {
+        expect(summary.warnings).toContain('Alchemist in play — ability may affect setup.');
+        expect(summary.failures).not.toContain('Alchemist in play — ability may affect setup.');
+      }
+    });
+
+    it('puts duplicate characters under failures, not warnings', () => {
+      const players: Player[] = [...basePlayers, { id: '7', name: 'Gina', roleId: 'chef', isDead: false }];
+      const summary = getValidationSummary(players);
+      expect(summary).not.toBeNull();
+      if (summary) {
+        expect(summary.failures).toContain('Chef is assigned to 2 players.');
+        expect(summary.warnings).not.toContain('Chef is assigned to 2 players.');
+      }
+    });
+
+    it('puts Marionette placement issues under failures, not warnings', () => {
+      const players: Player[] = [
+        { id: '1', name: 'Player 1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'Player 2', roleId: 'librarian', isDead: false, isTheMarionette: true },
+        { id: '3', name: 'Player 3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'Player 4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'Player 5', roleId: 'poisoner', isDead: false },
+        { id: '6', name: 'Player 6', roleId: 'imp', isDead: false }, // Demon is far from Marionette (Player 2)
+      ];
+      const summary = getValidationSummary(players);
+      expect(summary).not.toBeNull();
+      if (summary) {
+        expect(summary.failures).toContain('Marionette (Player 2) must be sitting next to the Demon.');
+        expect(summary.warnings).not.toContain('Marionette (Player 2) must be sitting next to the Demon.');
+      }
+    });
+
+    it('puts characters not on the script under failures', () => {
+      const players: Player[] = [
+        { id: '1', name: 'Player 1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'Player 2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'Player 3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'Player 4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'Player 5', roleId: 'poisoner', isDead: false },
+        { id: '6', name: 'Player 6', roleId: 'imp', isDead: false },
+      ];
+      // Script does not include 'chef'
+      const scriptRoles: Role[] = [
+        { id: 'washerwoman', name: 'Washerwoman', team: 'townsfolk', ability: '' },
+        { id: 'librarian', name: 'Librarian', team: 'townsfolk', ability: '' },
+        { id: 'investigator', name: 'Investigator', team: 'townsfolk', ability: '' },
+        { id: 'poisoner', name: 'Poisoner', team: 'minion', ability: '' },
+        { id: 'imp', name: 'Imp', team: 'demon', ability: '' },
+      ];
+      const summary = getValidationSummary(players, scriptRoles);
+      expect(summary).not.toBeNull();
+      if (summary) {
+        expect(summary.failures).toContain('1 character is not on the script.');
+      }
+
+      // 2 missing characters (chef and poisoner are missing)
+      const scriptRoles2: Role[] = [
+        { id: 'washerwoman', name: 'Washerwoman', team: 'townsfolk', ability: '' },
+        { id: 'librarian', name: 'Librarian', team: 'townsfolk', ability: '' },
+        { id: 'investigator', name: 'Investigator', team: 'townsfolk', ability: '' },
+        { id: 'imp', name: 'Imp', team: 'demon', ability: '' },
+      ];
+      const summary2 = getValidationSummary(players, scriptRoles2);
+      expect(summary2).not.toBeNull();
+      if (summary2) {
+        expect(summary2.failures).toContain('2 characters are not on the script.');
+      }
+    });
+  });
+
+  describe('outsider and townsfolk failures', () => {
+    it('should add failures when there are too few or too many outsiders', () => {
+      const tooFewOutsiders: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'empath', isDead: false },
+        { id: '6', name: 'P6', roleId: 'monk', isDead: false },
+        { id: '7', name: 'P7', roleId: 'poisoner', isDead: false },
+        { id: '8', name: 'P8', roleId: 'imp', isDead: false },
+      ];
+      const summary1 = getValidationSummary(tooFewOutsiders);
+      expect(summary1?.failures).toContain('Too few Outsiders: expected 1, but got 0.');
+      expect(summary1?.failures).toContain('Too many Townsfolk: expected 5, but got 6.');
+
+      const tooManyOutsiders: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'butler', isDead: false },
+        { id: '6', name: 'P6', roleId: 'recluse', isDead: false },
+        { id: '7', name: 'P7', roleId: 'poisoner', isDead: false },
+        { id: '8', name: 'P8', roleId: 'imp', isDead: false },
+      ];
+      const summary2 = getValidationSummary(tooManyOutsiders);
+      expect(summary2?.failures).toContain('Too many Outsiders: expected 1, but got 2.');
+      expect(summary2?.failures).toContain('Too few Townsfolk: expected 5, but got 4.');
+    });
+
+    it('should handle townsfolk combination mismatch when outsider count is valid but townsfolk is wrong', () => {
+      const mismatchPlayers: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'balloonist', isDead: false },
+        { id: '6', name: 'P6', roleId: 'butler', isDead: false },
+        { id: '7', name: 'P7', roleId: 'recluse', isDead: false },
+        { id: '8', name: 'P8', roleId: 'poisoner', isDead: false },
+        { id: '9', name: 'P9', roleId: 'imp', isDead: false },
+      ];
+      const summary3 = getValidationSummary(mismatchPlayers.slice(0, 8));
+      expect(summary3?.failures).toContain('Too many Townsfolk: expected 4 (with 2 Outsiders), but got 5.');
+    });
+
+    it('should add failures when there are too few or too many minions or demons', () => {
+      const tooFewMinions: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'empath', isDead: false },
+        { id: '6', name: 'P6', roleId: 'butler', isDead: false },
+        { id: '7', name: 'P7', roleId: 'monk', isDead: false },
+        { id: '8', name: 'P8', roleId: 'imp', isDead: false },
+      ];
+      const summary1 = getValidationSummary(tooFewMinions);
+      expect(summary1?.failures).toContain('Too few Minions: expected 1, but got 0.');
+
+      const tooManyMinions: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'butler', isDead: false },
+        { id: '6', name: 'P6', roleId: 'poisoner', isDead: false },
+        { id: '7', name: 'P7', roleId: 'baron', isDead: false },
+        { id: '8', name: 'P8', roleId: 'imp', isDead: false },
+      ];
+      const summary2 = getValidationSummary(tooManyMinions);
+      expect(summary2?.failures).toContain('Too many Minions: expected 1, but got 2.');
+
+      const tooFewDemons: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'empath', isDead: false },
+        { id: '6', name: 'P6', roleId: 'butler', isDead: false },
+        { id: '7', name: 'P7', roleId: 'poisoner', isDead: false },
+        { id: '8', name: 'P8', roleId: 'monk', isDead: false },
+      ];
+      const summary3 = getValidationSummary(tooFewDemons);
+      expect(summary3?.failures).toContain('Too few Demons: expected 1, but got 0.');
+
+      const tooManyDemons: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'butler', isDead: false },
+        { id: '6', name: 'P6', roleId: 'poisoner', isDead: false },
+        { id: '7', name: 'P7', roleId: 'imp', isDead: false },
+        { id: '8', name: 'P8', roleId: 'zombuul', isDead: false },
+      ];
+      const summary4 = getValidationSummary(tooManyDemons);
+      expect(summary4?.failures).toContain('Too many Demons: expected 1, but got 2.');
+    });
+
+    it('should correctly apply setup modifications when a setup-modifying role is a Drunk/Marionette fake identity', () => {
+      const playersWith2Outsiders: Player[] = [
+        { id: '1', name: 'P1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'P2', roleId: 'librarian', isDead: false },
+        { id: '3', name: 'P3', roleId: 'investigator', isDead: false },
+        { id: '4', name: 'P4', roleId: 'chef', isDead: false },
+        { id: '5', name: 'P5', roleId: 'balloonist', isDead: false, isTheMarionette: true },
+        { id: '6', name: 'P6', roleId: 'butler', isDead: false },
+        { id: '7', name: 'P7', roleId: 'recluse', isDead: false },
+        { id: '8', name: 'P8', roleId: 'imp', isDead: false },
+      ];
+      const summary = getValidationSummary(playersWith2Outsiders);
+      expect(summary?.isOutsiderValid).toBe(true);
+      expect(summary?.failures.some(f => f.includes('Outsiders'))).toBe(false);
+    });
+
+    it('should correctly count traveler roles when they are not in the passed script/allRoles list', () => {
+      const players: Player[] = [
+        { id: '1', name: 'Player 1', roleId: 'washerwoman', isDead: false },
+        { id: '2', name: 'Player 2', roleId: 'gunslinger', isDead: false },
+      ];
+      const customScript: Role[] = [
+        { id: 'washerwoman', name: 'Washerwoman', team: 'townsfolk' },
+      ];
+      const summary = getValidationSummary(players, customScript);
+      expect(summary).not.toBeNull();
+      if (summary) {
+        expect(summary.counts.traveler).toBe(1);
+        expect(summary.counts.townsfolk).toBe(1);
+      }
+    });
+  });
+
+  describe('bag setup validation warnings', () => {
+    const basePlayers: Player[] = [
+      { id: '1', name: 'Alice', roleId: 'washerwoman', isDead: false },
+      { id: '2', name: 'Bob', roleId: 'librarian', isDead: false },
+      { id: '3', name: 'Charlie', roleId: 'investigator', isDead: false },
+      { id: '4', name: 'David', roleId: 'chef', isDead: false },
+      { id: '5', name: 'Eve', roleId: 'poisoner', isDead: false },
+      { id: '6', name: 'Frank', roleId: 'imp', isDead: false },
+    ];
+
+    it('does not warn if selectedCharacterIds is empty or undefined', () => {
+      const summary = getValidationSummary(basePlayers, undefined, new Set());
+      expect(summary?.warnings.length).toBe(0);
+    });
+
+    it('warns if a player is assigned a role not in selectedCharacterIds', () => {
+      const bag = new Set(['washerwoman', 'librarian', 'investigator', 'chef', 'poisoner', 'scarletwoman']); // imp is missing from bag, replaced by scarletwoman
+      const summary = getValidationSummary(basePlayers, undefined, bag);
+      expect(summary?.warnings).toContain('Imp is assigned to Frank, but is not in the bag setup.');
+    });
+
+    it('correctly checks true roles of disguised players (Drunk/Marionette/Lunatic)', () => {
+      // Bob is the Drunk (disguised as Librarian).
+      // True role is 'drunk'.
+      const disguisedPlayers: Player[] = [
+        ...basePlayers.filter(p => p.name !== 'Bob'),
+        { id: '2', name: 'Bob', roleId: 'librarian', isDead: false, isTheDrunk: true },
+      ];
+
+      // Bag setup: 'washerwoman', 'drunk', 'investigator', 'chef', 'poisoner', 'imp'
+      const bag = new Set(['washerwoman', 'drunk', 'investigator', 'chef', 'poisoner', 'imp']);
+      const summary = getValidationSummary(disguisedPlayers, undefined, bag);
+      // No warning, because Bob's true role (drunk) is in the bag, and Librarian is his fake role
+      expect(summary?.warnings.filter(w => w.includes('not in the bag setup')).length).toBe(0);
+
+      // If 'drunk' is missing from the bag setup:
+      const bagNoDrunk = new Set(['washerwoman', 'butler', 'investigator', 'chef', 'poisoner', 'imp']);
+      const summary2 = getValidationSummary(disguisedPlayers, undefined, bagNoDrunk);
+      expect(summary2?.warnings).toContain('Drunk is assigned to Bob, but is not in the bag setup.');
+    });
+
+    it('ignores traveler roles when validating bag setup', () => {
+      const playersWithTraveler: Player[] = [
+        ...basePlayers,
+        { id: '7', name: 'Grace', roleId: 'gunslinger', isDead: false }, // traveler
+      ];
+      const bag = new Set(['washerwoman', 'librarian', 'investigator', 'chef', 'poisoner', 'imp']);
+      const summary = getValidationSummary(playersWithTraveler, undefined, bag);
+      expect(summary?.warnings.filter(w => w.includes('not in the bag setup')).length).toBe(0);
+    });
+  });
 });
+

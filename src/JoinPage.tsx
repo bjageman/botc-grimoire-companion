@@ -4,6 +4,8 @@ import { useGameSocket } from './hooks/useGameSocket';
 import { useIsMobile } from './hooks/useIsMobile';
 import rolesData from './official_roles.json';
 import { cn } from './utils/cn';
+import { roleIconFallback } from './utils/roleIcon';
+import { sortByScriptOrder } from './utils/scriptUtils';
 import { ShieldAlert, Sparkles, ArrowRight, Eye, EyeOff, Settings, CheckCircle2, RotateCcw, Plus, Search, Moon, Scroll, QrCode } from 'lucide-react';
 import type { Role, Player } from './types';
 import ScriptCharactersModal from './components/shared/ScriptCharactersModal';
@@ -12,6 +14,7 @@ import PageLayout from './components/shared/PageLayout';
 import DialogModal from './components/shared/DialogModal';
 import { useDialog } from './hooks/useDialog';
 import RoomCodeModal from './components/shared/RoomCodeModal';
+import LoadingScreen from './components/shared/LoadingScreen';
 
 export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dark'; toggleTheme: () => void }) {
   const [code, setCode] = useState(() => {
@@ -95,9 +98,19 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
   const [pronouns, setPronouns] = useState(() => localStorage.getItem('joined-pronouns') || '');
   const [showRoomCodeModal, setShowRoomCodeModal] = useState(false);
 
+  const [userRotation, setUserRotation] = useState<number | null>(null);
+
+  const rotationOffset = useMemo(() => {
+    if (userRotation !== null) return userRotation;
+    const myName = name;
+    if (!myName) return 0;
+    const idx = players.findIndex(p => p.name.trim().toLowerCase() === myName.trim().toLowerCase());
+    return idx !== -1 ? idx : 0;
+  }, [players, name, userRotation]);
+
   const sortedRoles = useMemo(() => {
     const baseRoles = customScriptRoles || (rolesData as Role[]);
-    return [...baseRoles].sort((a, b) => a.name.localeCompare(b.name));
+    return sortByScriptOrder(baseRoles, baseRoles);
   }, [customScriptRoles]);
 
   const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -235,7 +248,8 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         const me = payload.players.find((pl) => pl.name.trim().toLowerCase() === name.trim().toLowerCase() || pl.id === playerId);
         if (me) {
           if (me.roleId) {
-            const rObj = (rolesData as Role[]).find(r => r.id === me.roleId);
+            const effectiveRoles = (payload.customScriptRoles !== undefined ? payload.customScriptRoles : customScriptRoles) || (rolesData as Role[]);
+            const rObj = effectiveRoles.find(r => r.id === me.roleId);
             if (rObj) {
               setAssignedRole(rObj);
               if (stateRef.current === 'waiting' || stateRef.current === 'preferences') {
@@ -250,6 +264,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
       sessionStorage.removeItem('joined-code');
       sessionStorage.removeItem('joined-name');
       setState('join');
+      setUserRotation(null);
     } else if (payload.type === 'booted') {
       if (payload.playerId === playerId) {
         showAlert('You have been booted from the game room.');
@@ -257,6 +272,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
         sessionStorage.removeItem('joined-name');
         window.location.hash = '#/join';
         setState('join');
+        setUserRotation(null);
       }
     }
   };
@@ -346,6 +362,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
     setState('join');
     setAssignedRole(null);
     setRevealed(false);
+    setUserRotation(null);
   };
 
   const goToTracker = () => {
@@ -385,10 +402,11 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
 
   const isMobile = useIsMobile();
   const isLight = theme === 'light';
-
+  const showLoading = state === 'checking' || (state !== 'join' && !isConnected);
 
   return (
     <>
+    {showLoading && <LoadingScreen isLight={isLight} />}
     <PageLayout theme={theme} toggleTheme={toggleTheme} title="Join Game" backHref="#/">
       <div className="w-full max-w-md mx-auto">
 
@@ -802,7 +820,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
                   assignedRole.team === 'demon' && "border-clocktower-demon",
                   assignedRole.team === 'traveler' && "border-clocktower-traveler"
                 )}>
-                  <img src={`/icons/${assignedRole.id}.svg`} alt={assignedRole.name} className="w-20 h-20 object-contain" />
+                  <img key={assignedRole.id} src={`/icons/${assignedRole.id}.svg`} alt={assignedRole.name} className="w-20 h-20 object-contain" onError={roleIconFallback(assignedRole, assignedRole.team === 'minion' || assignedRole.team === 'demon')} />
                 </div>
 
                 <div className="flex gap-2 justify-center items-center mb-3">
@@ -831,7 +849,7 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
 
                 {/* Role ability summary */}
                 <p className="text-xs text-gray-400 mt-3 max-w-[90%] leading-relaxed">
-                  {(rolesData as Array<{ id: string; ability: string }>).find((r) => r.id === assignedRole.id)?.ability}
+                  {assignedRole.ability ?? (rolesData as Array<{ id: string; ability: string }>).find((r) => r.id === assignedRole.id)?.ability}
                 </p>
               </div>
             </div>
@@ -892,6 +910,8 @@ export default function JoinPage({ theme, toggleTheme }: { theme: 'light' | 'dar
                 onSelectPlayer={() => {}}
                 rolesData={[]}
                 isLightModeActive={isLight}
+                rotationOffset={rotationOffset}
+                onRotationChange={setUserRotation}
               />
             </div>
 

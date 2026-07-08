@@ -1,8 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { Plus, Shuffle, Upload, AlertTriangle, Package } from 'lucide-react';
 import { cn } from '../../utils/cn';
+import ToggleSwitch from '../shared/ToggleSwitch';
 import type { Player, Role } from '../../types';
 import rolesData from '../../roles.json';
+import { sortByScriptOrder } from '../../utils/scriptUtils';
 import ScriptCharactersModal from '../shared/ScriptCharactersModal';
 import SelectCharactersModal from './SelectCharactersModal';
 import ScriptHelpButton from '../shared/ScriptHelpButton';
@@ -38,6 +40,7 @@ interface StandardSetupPhaseProps {
   setPhase: (phase: 'setup' | 'game') => void;
   draggedIndex: number | null;
   dragOverIndex: number | null;
+  hoverSide: 'before' | 'after' | null;
   handleMouseDown: (e: React.MouseEvent) => void;
   handleDragStart: (e: React.DragEvent, index: number) => void;
   handleDragOver: (e: React.DragEvent, index: number) => void;
@@ -76,6 +79,7 @@ export default function StandardSetupPhase({
   setPhase,
   draggedIndex,
   dragOverIndex,
+  hoverSide,
   handleMouseDown,
   handleDragStart,
   handleDragOver,
@@ -96,10 +100,11 @@ export default function StandardSetupPhase({
   const [showGrimoireWarning, setShowGrimoireWarning] = useState(false);
   const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
   const [isSelectCharactersModalOpen, setIsSelectCharactersModalOpen] = useState(false);
+  const [overrideFailures, setOverrideFailures] = useState(false);
 
   const sortedRoles = useMemo(() => {
     const baseRoles = customScriptRoles || (rolesData as Role[]);
-    return [...baseRoles].sort((a, b) => a.name.localeCompare(b.name));
+    return sortByScriptOrder(baseRoles, baseRoles);
   }, [customScriptRoles]);
 
   const openGrimoire = () => {
@@ -293,6 +298,7 @@ export default function StandardSetupPhase({
             isLightModeActive={isLightModeActive}
             draggedIndex={draggedIndex}
             dragOverIndex={dragOverIndex}
+            hoverSide={hoverSide}
             handleMouseDown={handleMouseDown}
             handleDragStart={handleDragStart}
             handleDragOver={handleDragOver}
@@ -305,6 +311,7 @@ export default function StandardSetupPhase({
             setActivePlayerId={setActivePlayerId}
             setSearchTerm={setSearchTerm}
             remotePlayerIds={remotePlayerIds}
+            selectionRoles={sortedRoles}
           />
         </section>
       </div>
@@ -317,12 +324,26 @@ export default function StandardSetupPhase({
         )}
         <button
           id="open-grimoire-button"
-          disabled={!allAssigned}
+          disabled={!allAssigned || (!!validationSummary?.failures?.length && !overrideFailures)}
           onClick={handleOpenGrimoire}
           className="w-full bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-black/40 flex items-center justify-center gap-2"
         >
           Open Grimoire
         </button>
+        {validationSummary && validationSummary.failures && validationSummary.failures.length > 0 && (
+          <label className={cn(
+            "flex items-center justify-center gap-2 text-xs font-semibold select-none cursor-pointer transition-colors mt-2",
+            isLightModeActive ? "text-gray-600 hover:text-gray-800" : "text-gray-400 hover:text-gray-200"
+          )}>
+            <ToggleSwitch
+              id="override-failures-checkbox"
+              checked={overrideFailures}
+              onChange={setOverrideFailures}
+              isLightModeActive={isLightModeActive}
+            />
+            <span>Override failures</span>
+          </label>
+        )}
       </div>
     </div>
 

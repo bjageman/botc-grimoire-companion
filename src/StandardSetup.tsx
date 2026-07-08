@@ -22,6 +22,7 @@ import { useDialog } from './hooks/useDialog';
 import RoomCodeModal from './components/shared/RoomCodeModal';
 import HeaderCodeBadge from './components/shared/HeaderCodeBadge';
 import ResetGameModal from './components/shared/ResetGameModal';
+import LoadingScreen from './components/shared/LoadingScreen';
 
 type Phase = 'setup' | 'game';
 
@@ -88,6 +89,15 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [isSearchingRole, setIsSearchingRole] = useState(false);
   const [modalRoleSearch, setModalRoleSearch] = useState('');
+
+  const [prevSelectedPlayerId, setPrevSelectedPlayerId] = useState<string | null>(null);
+  if (selectedPlayerId !== prevSelectedPlayerId) {
+    setPrevSelectedPlayerId(selectedPlayerId);
+    if (selectedPlayerId) {
+      const p = players.find(player => player.id === selectedPlayerId);
+      setIsSearchingRole(p ? !p.roleId : false);
+    }
+  }
 
   // Script states
   const [scriptName, setScriptName] = usePersistedField<string>(STORAGE_KEY, 'scriptName', "All Roles");
@@ -245,10 +255,17 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     }, 'Reset Time');
   };
 
+  const findRole = (roleId?: string) => {
+    if (!roleId) return undefined;
+    const baseRoles = customScriptRoles || (rolesData as Role[]);
+    return baseRoles.find(r => r.id === roleId) || (rolesData as Role[]).find(r => r.id === roleId);
+  };
+
   // Drag and drop states
   const {
     draggedIndex,
     dragOverIndex,
+    hoverSide,
     handleMouseDown,
     handleDragStart,
     handleDragOver,
@@ -385,7 +402,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     phase,
     timeOfDay,
     dayNumber,
-    customScriptRoleIds: customScriptRoles ? customScriptRoles.map(r => r.id) : null,
+    customScriptRoles,
     scriptName,
     scriptAuthor,
     isLilMonstaGame,
@@ -398,18 +415,6 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   ]);
 
   const handleApplySync = useCallback((incoming: typeof syncState) => {
-    const customScriptRolesResolved = incoming.customScriptRoleIds
-      ? incoming.customScriptRoleIds.map((id: string) => {
-          const matched = (rolesData as Role[]).find(r => r.id === id);
-          if (matched) return matched;
-          return {
-            id,
-            name: id.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' '),
-            team: 'townsfolk' as const
-          };
-        })
-      : null;
-
     const localStateStr = JSON.stringify(syncState);
     const incomingStateStr = JSON.stringify(incoming);
 
@@ -418,7 +423,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
       setPhase(incoming.phase || 'setup');
       setTimeOfDay(incoming.timeOfDay || 'night');
       setDayNumber(incoming.dayNumber || 1);
-      setCustomScriptRoles(customScriptRolesResolved);
+      setCustomScriptRoles(incoming.customScriptRoles ?? null);
       setScriptName(incoming.scriptName || "All Roles");
       setScriptAuthor(incoming.scriptAuthor || "");
       setIsLilMonstaGame(incoming.isLilMonstaGame || false);
@@ -432,12 +437,13 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     setScriptName, setScriptAuthor, setIsLilMonstaGame, setDemonBluffs, setReminderTokens, setCheckedItems, setRotationOffset
   ]);
 
-  useStorytellerSync({
+  const { hasReceivedSync } = useStorytellerSync({
     isSecondary,
     syncCode,
     localState: syncState,
     onApplySync: handleApplySync,
   });
+  const showLoading = isSecondary && !hasReceivedSync;
 
   // Synchronize selectedCharacterIds with customScriptRoles
   const rolesForSync = customScriptRoles || (rolesData as Role[]);
@@ -568,7 +574,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
   const updatePlayerRole = (id: string, roleId: string) => {
     const player = players.find(p => p.id === id);
-    const oldRole = player?.roleId ? (rolesData as Role[]).find(r => r.id === player.roleId) : undefined;
+    const oldRole = player?.roleId ? findRole(player.roleId) : undefined;
     const defaultEvil = oldRole ? (oldRole.team === 'minion' || oldRole.team === 'demon') : false;
     const currentAlignment = player 
       ? (player.isEvil !== undefined 
@@ -582,7 +588,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
     if (phase === 'game') {
       if (player && player.roleId !== (roleId || undefined)) {
-        const newRole = (rolesData as Role[]).find(r => r.id === roleId);
+        const newRole = findRole(roleId);
         if (oldRole && newRole) {
           addLogEntry(`${player.name} changed from ${oldRole.name} to ${newRole.name}`);
         } else if (newRole) {
@@ -658,14 +664,14 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   const togglePlayerEvil = (id: string) => {
     const player = players.find(p => p.id === id);
     if (player) {
-      const roleObj = (rolesData as Role[]).find(r => r.id === player.roleId);
+      const roleObj = findRole(player.roleId);
       const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
       const currentEvil = player.isEvil !== undefined ? player.isEvil : defaultEvil;
       addLogEntry(`${player.name} marked as ${!currentEvil ? 'Evil' : 'Good'}`);
     }
     setPlayers(prev => prev.map(p => {
       if (p.id === id) {
-        const roleObj = (rolesData as Role[]).find(r => r.id === p.roleId);
+        const roleObj = findRole(p.roleId);
         const defaultEvil = roleObj ? (roleObj.team === 'minion' || roleObj.team === 'demon') : false;
         const currentEvil = p.isEvil !== undefined ? p.isEvil : defaultEvil;
         return { ...p, isEvil: !currentEvil };
@@ -760,10 +766,14 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     const file = e.target.files?.[0];
     if (!file) return;
     parseScriptFile(file)
-      .then(({ name, author, roles }) => {
+      .then(({ name, author, roles, unknownRoles }) => {
         setCustomScriptRoles(roles);
         setScriptName(name);
         setScriptAuthor(author);
+        if (unknownRoles.length > 0) {
+          const list = unknownRoles.map(r => r.name).join(', ');
+          showAlert(`This script includes custom character(s) not recognized by the app: ${list}. They'll still be usable, but their team was inferred from the script file and they won't have official icons or ability text.`);
+        }
       })
       .catch(err => showAlert((err as Error).message));
   };
@@ -791,7 +801,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
   }, [currentScriptRoles]);
 
   const randomlyAssignRoles = () => {
-    const assignedPlayers = performStandardAssignment(players, currentScriptRoles, selectionRoles);
+    const assignedPlayers = performStandardAssignment(players, currentScriptRoles, selectionRoles, currentScriptRoles);
     if (!assignedPlayers) {
       const N = players.length;
       showAlert(N < 5
@@ -811,7 +821,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         customSelectionRoles.push(traveler);
       }
     }
-    const assignedPlayers = performStandardAssignment(players, selectedRoles, customSelectionRoles)!;
+    const assignedPlayers = performStandardAssignment(players, selectedRoles, customSelectionRoles, currentScriptRoles)!;
     setPlayers(assignedPlayers);
     setIsLilMonstaGame(assignedPlayers.some(p => p.isTheLilMonsta));
   };
@@ -839,8 +849,8 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
 
   const validationSummary = useMemo(() => {
-    return getValidationSummary(players);
-  }, [players]);
+    return getValidationSummary(players, selectionRoles, selectedCharacterIds);
+  }, [players, selectionRoles, selectedCharacterIds]);
 
   const allAssigned = players.length >= 5 && players.every(p => p.roleId);
   const isLightModeActive = theme === 'light';
@@ -865,7 +875,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
         : modalPlayer.isTheLunatic
           ? (modalPlayer.roleId || 'lunatic')
           : modalPlayer.roleId;
-    return (rolesData as Role[]).find(r => r.id === actualRoleId);
+    return selectionRoles.find(r => r.id === actualRoleId);
   })() : undefined;
   const filteredModalRoles = selectionRoles
     .filter(r =>
@@ -889,6 +899,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
 
   return (
     <>
+    {showLoading && <LoadingScreen isLight={isLightModeActive} />}
     <PageLayout
       theme={theme}
       toggleTheme={toggleTheme}
@@ -915,7 +926,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
               title="Click to disconnect secondary storyteller device"
               isLightModeActive={isLightModeActive}
             >
-              Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
+              Syncing with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
             </HeaderCodeBadge>
           ) : phase === 'setup' ? (
             <HeaderCodeBadge
@@ -959,7 +970,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
             title="Click to disconnect secondary storyteller device"
             isLightModeActive={isLightModeActive}
           >
-            Sync with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
+            Syncing with <span className="text-clocktower-blood font-mono uppercase tracking-wider">{syncCode}</span>
           </HeaderCodeBadge>
         ) : phase === 'setup' ? (
           <HeaderCodeBadge
@@ -993,7 +1004,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
               const roleLines = players
                 .filter(pl => pl.roleId)
                 .map(pl => {
-                  const r = (rolesData as Role[]).find(ro => ro.id === pl.roleId);
+                  const r = findRole(pl.roleId);
                   const modifiers = [
                     pl.isTheLunatic && 'Lunatic',
                     pl.isTheMarionette && 'Marionette',
@@ -1034,6 +1045,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           onGrimoireConfirmed={() => setGrimoireConfirmed(true)}
           draggedIndex={draggedIndex}
           dragOverIndex={dragOverIndex}
+          hoverSide={hoverSide}
           handleMouseDown={handleMouseDown}
           handleDragStart={handleDragStart}
           handleDragOver={handleDragOver}
@@ -1075,6 +1087,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           handleTouchEnd={handleTouchEnd}
           onResetDead={resetDead}
           onResetTime={resetTime}
+          remotePlayerIds={remotePlayerIds}
           scriptName={scriptName}
           scriptAuthor={scriptAuthor}
           customScriptRoles={customScriptRoles}
@@ -1083,7 +1096,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
             setDemonBluffs(bluffs);
             const filled = bluffs.filter(Boolean);
             if (filled.length === 3) {
-              const names = filled.map(id => (rolesData as Role[]).find(r => r.id === id)?.name ?? id);
+              const names = filled.map(id => findRole(id)?.name ?? id);
               addLogEntry(`Demon bluffs set: ${names.join(', ')}`);
             }
           }}
@@ -1145,6 +1158,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           togglePlayerTheMarionette={togglePlayerTheMarionette}
           togglePlayerTheLunatic={togglePlayerTheLunatic}
           togglePlayerTheLilMonsta={togglePlayerTheLilMonsta}
+          onUpdatePronouns={updatePlayerPronouns}
           onClose={() => { setActivePlayerId(null); setSearchTerm(''); }}
           isSecondary={isSecondary}
         />
@@ -1157,6 +1171,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           players={players}
           roleObj={modalRoleObj}
           filteredModalRoles={filteredModalRoles}
+          allRoles={selectionRoles}
           isSearchingRole={isSearchingRole}
           modalRoleSearch={modalRoleSearch}
           isLightModeActive={isLightModeActive}

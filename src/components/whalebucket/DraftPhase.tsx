@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Shuffle } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import type { Player } from '../../WhaleBucket';
 import WhaleBucketDraftCircle from './DraftCircle';
 import GrimoireBalanceVerification from '../shared/GrimoireBalanceVerification';
+import ToggleSwitch from '../shared/ToggleSwitch';
 
 import type { ValidationSummary } from '../../utils/validationSummary';
 
@@ -27,6 +29,7 @@ export default function WhaleBucketDraftPhase({
   setActiveDraftPlayerId,
   remotePlayerIds,
 }: WhaleBucketDraftPhaseProps) {
+  const [overrideFailures, setOverrideFailures] = useState(false);
   return (
     <div className="space-y-5">
       <div className="flex justify-between items-center">
@@ -60,7 +63,7 @@ export default function WhaleBucketDraftPhase({
         </button>
         <button
           id="open-grimoire-button-top"
-          disabled={players.some(p => !p.roleId)}
+          disabled={players.some(p => !p.roleId) || (!!validationSummary?.failures?.length && !overrideFailures)}
           onClick={() => {
             onStartGame();
             setTimeout(() => {
@@ -68,7 +71,7 @@ export default function WhaleBucketDraftPhase({
               grimoireElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
           }}
-          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 shadow-lg shadow-black/40"
+          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-black/40"
         >
           Open Grimoire
         </button>
@@ -95,7 +98,7 @@ export default function WhaleBucketDraftPhase({
         </button>
         <button
           id="open-grimoire-button"
-          disabled={players.some(p => !p.roleId)}
+          disabled={players.some(p => !p.roleId) || (!!validationSummary?.failures?.length && !overrideFailures)}
           onClick={() => {
             onStartGame();
             setTimeout(() => {
@@ -103,11 +106,25 @@ export default function WhaleBucketDraftPhase({
               grimoireElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }, 100);
           }}
-          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 shadow-lg shadow-black/40"
+          className="flex-[2] bg-clocktower-blood hover:bg-red-800 text-white py-3 rounded-lg font-display font-bold tracking-widest uppercase transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-black/40"
         >
           Open Grimoire
         </button>
       </div>
+      {validationSummary && validationSummary.failures && validationSummary.failures.length > 0 && (
+        <label className={cn(
+          "flex items-center justify-center gap-2 text-xs font-semibold select-none cursor-pointer transition-colors mt-2",
+          isLightModeActive ? "text-gray-600 hover:text-gray-800" : "text-gray-400 hover:text-gray-200"
+        )}>
+          <ToggleSwitch
+            id="override-failures-checkbox-whale"
+            checked={overrideFailures}
+            onChange={setOverrideFailures}
+            isLightModeActive={isLightModeActive}
+          />
+          <span>Override failures</span>
+        </label>
+      )}
     </div>
   );
 }
