@@ -328,9 +328,18 @@ export default function GamePhase({
                   id="toggle-reminders-checkbox-desktop"
                   checked={enableReminders}
                   onChange={(e) => onToggleReminders(e.target.checked)}
-                  className="rounded border-gray-300 text-clocktower-blood focus:ring-clocktower-blood bg-transparent cursor-pointer"
+                  className="sr-only"
                 />
-                Turn on Reminder Tokens
+                <div className={cn(
+                  "w-9 h-5 rounded-full transition-colors relative shrink-0",
+                  enableReminders ? "bg-clocktower-blood" : (isLightModeActive ? "bg-gray-300" : "bg-gray-700")
+                )}>
+                  <div className={cn(
+                    "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-transform shadow-sm",
+                    enableReminders ? "translate-x-4" : "translate-x-0"
+                  )} />
+                </div>
+                <span>Turn on Reminder Tokens</span>
               </label>
             )}
           </div>
@@ -459,14 +468,23 @@ export default function GamePhase({
                 );
               })}
             </div>
-            <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer select-none pt-0.5">
+            <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none pt-0.5">
               <input
                 type="checkbox"
                 checked={showAllBluffCandidates}
                 onChange={e => setShowAllBluffCandidates(e.target.checked)}
-                className="accent-clocktower-blood"
+                className="sr-only"
               />
-              Lunatic Mode
+              <div className={cn(
+                "w-9 h-5 rounded-full transition-colors relative shrink-0",
+                showAllBluffCandidates ? "bg-clocktower-blood" : (isLightModeActive ? "bg-gray-300" : "bg-gray-700")
+              )}>
+                <div className={cn(
+                  "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-transform shadow-sm",
+                  showAllBluffCandidates ? "translate-x-4" : "translate-x-0"
+                )} />
+              </div>
+              <span className="font-semibold">Lunatic Mode</span>
             </label>
           </div>
         )}
@@ -824,9 +842,18 @@ export default function GamePhase({
               id="toggle-reminders-checkbox-mobile"
               checked={enableReminders}
               onChange={(e) => onToggleReminders(e.target.checked)}
-              className="rounded border-gray-300 text-clocktower-blood focus:ring-clocktower-blood bg-transparent cursor-pointer"
+              className="sr-only"
             />
-            Turn on Reminder Tokens
+            <div className={cn(
+              "w-9 h-5 rounded-full transition-colors relative shrink-0",
+              enableReminders ? "bg-clocktower-blood" : (isLightModeActive ? "bg-gray-300" : "bg-gray-700")
+            )}>
+              <div className={cn(
+                "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-transform shadow-sm",
+                enableReminders ? "translate-x-4" : "translate-x-0"
+              )} />
+            </div>
+            <span>Turn on Reminder Tokens</span>
           </label>
         )}
       </div>

@@ -126,9 +126,18 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
                 type="checkbox"
                 checked={sortAlphabetically}
                 onChange={(e) => setSortAlphabetically(e.target.checked)}
-                className="rounded border-gray-300 text-clocktower-blood focus:ring-clocktower-blood w-4 h-4 cursor-pointer"
+                className="sr-only"
               />
-              <span className={cn("text-xs font-medium", isLightModeActive ? "text-gray-600" : "text-gray-400")}>
+              <div className={cn(
+                "w-9 h-5 rounded-full transition-colors relative shrink-0",
+                sortAlphabetically ? "bg-clocktower-blood" : (isLightModeActive ? "bg-gray-300" : "bg-gray-700")
+              )}>
+                <div className={cn(
+                  "absolute top-[2px] left-[2px] bg-white rounded-full h-4 w-4 transition-transform shadow-sm",
+                  sortAlphabetically ? "translate-x-4" : "translate-x-0"
+                )} />
+              </div>
+              <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-600" : "text-gray-400")}>
                 Sort Alphabetically
               </span>
             </label>
