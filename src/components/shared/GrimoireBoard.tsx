@@ -314,7 +314,7 @@ export default function GrimoireBoard({
     <>
     <div className="w-full flex flex-col items-center">
       {/* Row 1: buttons, in their own fixed-proportion grid so their width never depends on badge content */}
-      <div className="w-full px-4 mb-1.5 max-w-[450px] md:max-w-none grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3">
+      <div className="w-full px-4 mb-1.5 max-w-[450px] md:max-w-none mx-auto grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] items-center gap-x-3">
         {onResetTime ? (
           <button
             id="grimoire-reset-time-button"
@@ -367,7 +367,7 @@ export default function GrimoireBoard({
 
       {/* Row 2: info badges — mobile only. Independent flex row so label width is sized to its
           own content, not tied to the button row's fixed column widths. */}
-      <div className="md:hidden w-full px-4 mb-2 max-w-[450px] flex items-center justify-between gap-3">
+      <div className="md:hidden w-full px-4 mb-2 max-w-[450px] mx-auto flex items-center justify-between gap-3">
         <div
           id="grimoire-info-row"
           onClick={!isSynced && toggleTimeOfDay ? toggleTimeOfDay : undefined}
