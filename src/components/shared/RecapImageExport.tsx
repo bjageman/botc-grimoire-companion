@@ -17,6 +17,24 @@ interface RecapImageExportProps {
   onDone: (error?: string) => void;
 }
 
+/**
+ * A custom script's token art lives on a remote host, and CharacterToken only reaches for it
+ * after the bundled /icons/<id>.svg 404s — so at layout time those <img>s are still pointing at
+ * a URL that is about to fail. Capturing then would bake in blank tokens; wait for each image to
+ * either load or give up (the fallback hides it) before rasterizing.
+ */
+async function waitForImages(root: HTMLElement, timeoutMs = 8000): Promise<void> {
+  const settled = () =>
+    Array.from(root.querySelectorAll('img')).every(
+      img => img.style.display === 'none' || (img.complete && img.naturalWidth > 0)
+    );
+
+  const deadline = Date.now() + timeoutMs;
+  while (!settled() && Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 50));
+  }
+}
+
 function saveBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -42,6 +60,7 @@ export default function RecapImageExport({ onDone, ...card }: RecapImageExportPr
     capturedRef.current = true;
 
     try {
+      await waitForImages(cardRef.current);
       // skipFonts keeps the exporter from fetching Google's stylesheet mid-capture; the card
       // deliberately styles itself with fonts that are already on every machine.
       const blob = await toBlob(cardRef.current, { pixelRatio: 2, skipFonts: true, backgroundColor: '#0b0b0e' });
