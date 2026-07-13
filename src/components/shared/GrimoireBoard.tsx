@@ -303,12 +303,13 @@ export default function GrimoireBoard({
     return angles;
   }, [players.length, dynamicRadiusX, dynamicRadiusY, boardAspect]);
 
-  const rotatedPlayers = useMemo(() => {
-    if (rotationOffset === 0 || players.length === 0) return players;
-    const n = players.length;
-    const off = ((rotationOffset % n) + n) % n;
-    return [...players.slice(off), ...players.slice(0, off)];
-  }, [players, rotationOffset]);
+  // Players keep their order in the DOM and rotation only changes the seat each one
+  // is drawn in. Reordering the list instead would make React move the nodes, and a
+  // moved node drops the transition that animates it around the circle.
+  const playerCount = players.length;
+  const seatOffset = playerCount > 0 ? ((rotationOffset % playerCount) + playerCount) % playerCount : 0;
+  const seatOf = (playerIndex: number) =>
+    playerCount > 0 ? ((playerIndex - seatOffset) % playerCount + playerCount) % playerCount : 0;
 
   return (
     <>
@@ -479,8 +480,9 @@ export default function GrimoireBoard({
           </div>
         )}
 
-        {rotatedPlayers.map((p, index) => {
-          const angle = evenAngles[index] !== undefined ? evenAngles[index] : 0;
+        {players.map((p, playerIndex) => {
+          const seat = seatOf(playerIndex);
+          const angle = evenAngles[seat] !== undefined ? evenAngles[seat] : 0;
 
           const cosVal = Math.cos(angle);
           const sinVal = Math.sin(angle);
@@ -535,6 +537,7 @@ export default function GrimoireBoard({
                 top: `${topPos}%`,
                 transform: 'translate(-50%, -50%)',
                 zIndex: zIndex,
+                transition: 'left 250ms ease-in-out, top 250ms ease-in-out',
               }}
               onMouseEnter={() => {
                 setFannedPlayerId(p.id);
@@ -553,7 +556,7 @@ export default function GrimoireBoard({
                   setFannedPlayerId(p.id);
                 }
               }}
-              className="hover:z-50 group transition-[left,top] duration-200 ease-out"
+              className="hover:z-50 group"
             >
               {/* "+" add-reminder — at anchor when empty, shifted inward when reminders exist */}
               {onAddReminder && playerReminders.length < 5 && (

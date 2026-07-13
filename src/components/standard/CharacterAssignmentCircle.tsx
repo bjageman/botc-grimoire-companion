@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Wifi, RotateCcw, RotateCw } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import type { Player, Role } from '../../types';
@@ -53,12 +53,11 @@ export default function CharacterAssignmentCircle({
 }: CharacterAssignmentCircleProps) {
   const { boardRef, boardClass, btnStyle, nameStyle, positions, getDynamicFontSize } = useGrimoireLayout(players.length);
 
+  // Players keep their order in the DOM and rotation only changes the seat each one
+  // is drawn in. Reordering the list instead would make React move the nodes, and a
+  // moved node drops the transition that animates it around the circle.
   const n = players.length;
   const offset = n > 0 ? ((rotationOffset % n) + n) % n : 0;
-  const seatedPlayers = useMemo(
-    () => (offset === 0 ? players : [...players.slice(offset), ...players.slice(0, offset)]),
-    [players, offset]
-  );
   const seatOf = (playerIndex: number) => (n > 0 ? ((playerIndex - offset) % n + n) % n : 0);
 
   return (
@@ -75,8 +74,8 @@ export default function CharacterAssignmentCircle({
         )}
         style={{ containerType: 'size' }}
       >
-        {seatedPlayers.map((p, seatIndex) => {
-          const index = (seatIndex + offset) % n;
+        {players.map((p, index) => {
+          const seatIndex = seatOf(index);
           const pos = positions[seatIndex] ?? { left: 50, top: 50 };
           let roleObj = selectionRoles?.find(r => r.id === p.roleId);
           if (!roleObj) {
@@ -154,9 +153,10 @@ export default function CharacterAssignmentCircle({
                 top: `${pos.top}%`,
                 transform: 'translate(-50%, -50%)',
                 zIndex: draggedIndex === index ? 40 : dragOverIndex === index ? 35 : 10,
+                transition: 'left 250ms ease-in-out, top 250ms ease-in-out, opacity 200ms ease-in-out',
               }}
               className={cn(
-                "drag-handle cursor-grab active:cursor-grabbing touch-none transition-all duration-200",
+                "drag-handle cursor-grab active:cursor-grabbing touch-none",
                 draggedIndex === index && "opacity-30 scale-95",
                 isDropTarget && "scale-110"
               )}
