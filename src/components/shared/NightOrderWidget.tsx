@@ -72,8 +72,15 @@ export default function NightOrderWidget({
       [item.id]: willCheck,
     });
 
-    if (willCheck && item.advancesTo && item.advancesTo !== timeOfDay) {
-      onToggleTimeOfDay?.();
+    if (willCheck && item.advancesTo && item.advancesTo !== timeOfDay && onToggleTimeOfDay) {
+      onToggleTimeOfDay();
+
+      // Dawn hands the game back to the town, so bring the grimoire into view
+      if (item.advancesTo === 'day') {
+        setTimeout(() => {
+          document.getElementById('grimoire-circle-board')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+      }
     }
   };
 

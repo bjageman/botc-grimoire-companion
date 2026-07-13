@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { useState } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import NightOrderWidget from './NightOrderWidget';
 import type { Player } from '../../types';
 
@@ -125,6 +125,35 @@ describe('NightOrderWidget', () => {
 
     fireEvent.click(screen.getByText('Dawn', { selector: '.font-serif' }).closest('div')!);
     expect(handleToggleTimeOfDay).toHaveBeenCalledTimes(1);
+  });
+
+  it('scrolls the grimoire into view when Dawn starts the day', () => {
+    vi.useFakeTimers();
+    const scrollIntoView = vi.fn();
+    const board = document.createElement('div');
+    board.id = 'grimoire-circle-board';
+    board.scrollIntoView = scrollIntoView;
+    document.body.appendChild(board);
+
+    render(
+      <NightOrderWidget
+        players={mockPlayers}
+        timeOfDay="night"
+        dayNumber={1}
+        isLightModeActive={false}
+        checkedItems={{}}
+        onSetCheckedItems={vi.fn()}
+        onToggleTimeOfDay={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Dawn', { selector: '.font-serif' }).closest('div')!);
+    act(() => vi.runAllTimers());
+
+    expect(scrollIntoView).toHaveBeenCalled();
+
+    board.remove();
+    vi.useRealTimers();
   });
 
   it('advances to the next night when Dusk is checked during the day', () => {
