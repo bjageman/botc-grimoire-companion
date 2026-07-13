@@ -83,6 +83,13 @@ describe('SetupPlayerEditModal', () => {
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
+  it('clicking the role the player already has deselects it', () => {
+    const { container } = render(<SetupPlayerEditModal {...defaultProps} />);
+    fireEvent.click(container.querySelector('#role-option-washerwoman')!);
+    expect(defaultProps.updatePlayerRole).toHaveBeenCalledWith('p1', '');
+    expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+
   it('shows a "Taken" badge for roles already assigned to another player', () => {
     render(<SetupPlayerEditModal {...defaultProps} />);
     expect(screen.getByText('Taken: Charlie')).toBeInTheDocument();
