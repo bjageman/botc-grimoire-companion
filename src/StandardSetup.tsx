@@ -111,6 +111,7 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
     const scriptRoles = readPersistedField<Role[] | null>(STORAGE_KEY, 'customScriptRoles', null) || (rolesData as Role[]);
     return new Set(scriptRoles.map(r => r.id));
   });
+  const [bagOnly, setBagOnly] = useState(false);
   const [demonBluffs, setDemonBluffs] = usePersistedField<string[]>(STORAGE_KEY, 'demonBluffs', []);
   const [gameLog, setGameLog] = usePersistedField<string[]>(STORAGE_KEY, 'gameLog', []);
 
@@ -1178,6 +1179,9 @@ export default function StandardSetup({ theme, toggleTheme }: SetupProps) {
           togglePlayerTheLunatic={togglePlayerTheLunatic}
           togglePlayerTheLilMonsta={togglePlayerTheLilMonsta}
           onUpdatePronouns={updatePlayerPronouns}
+          selectedCharacterIds={selectedCharacterIds}
+          bagOnly={bagOnly}
+          setBagOnly={setBagOnly}
           onClose={() => { setActivePlayerId(null); setSearchTerm(''); }}
           isSecondary={isSecondary}
         />
