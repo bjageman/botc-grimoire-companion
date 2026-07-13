@@ -78,7 +78,7 @@ export function buildDiscordPost(opts: RecapOptions): { text: string; truncated:
     ...finalRoster(players, rolesData),
   ].join('\n');
 
-  if (gameLog.length === 0) return { text: head, truncated: false };
+  if (gameLog.length === 0) return clamp(head);
 
   const fence = (lines: string[]) => ['', '**Game Log**', '```', ...lines, '```'].join('\n');
   const full = head + fence(gameLog);
@@ -87,16 +87,28 @@ export function buildDiscordPost(opts: RecapOptions): { text: string; truncated:
   const notice = '… earlier entries trimmed — full log in the .txt';
   const kept: string[] = [];
   for (let i = gameLog.length - 1; i >= 0; i--) {
-    const candidate = [notice, ...[gameLog[i], ...kept]];
+    const candidate = [notice, gameLog[i], ...kept];
     if ((head + fence(candidate)).length > DISCORD_MESSAGE_LIMIT) break;
     kept.unshift(gameLog[i]);
   }
 
-  return { text: head + fence([notice, ...kept]), truncated: true };
+  const trimmed = head + fence([notice, ...kept]);
+  return trimmed.length <= DISCORD_MESSAGE_LIMIT
+    ? { text: trimmed, truncated: true }
+    : clamp(head);
+}
+
+function clamp(text: string): { text: string; truncated: boolean } {
+  if (text.length <= DISCORD_MESSAGE_LIMIT) return { text, truncated: false };
+
+  let end = DISCORD_MESSAGE_LIMIT - 1;
+  const code = text.charCodeAt(end - 1);
+  if (code >= 0xd800 && code <= 0xdbff) end -= 1;
+  return { text: text.slice(0, end) + '…', truncated: true };
 }
 
 export function recapImageFilename(scriptName: string, playerCount: number, date = new Date()): string {
   const slug = scriptName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'grimoire';
   const stamp = date.toISOString().slice(0, 10);
-  return `SPOILER_${slug}-${playerCount}p-${stamp}.png`;
+  return `${slug}-${playerCount}p-${stamp}.png`;
 }

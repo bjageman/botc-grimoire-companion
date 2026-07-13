@@ -105,16 +105,37 @@ describe('buildDiscordPost', () => {
     const { text } = buildDiscordPost({ ...base, gameLog: [] });
     expect(text).not.toContain('**Game Log**');
   });
+
+  it('never exceeds the limit even when the roster alone overflows it', () => {
+    const crowd = Array.from({ length: 60 }, (_, i) =>
+      player({ id: `x${i}`, name: `Player With A Very Long Name ${i}`, roleId: 'washerwoman' })
+    );
+
+    for (const gameLog of [[], ['[Day 1 · 20:00] something happened']]) {
+      const { text, truncated } = buildDiscordPost({ ...base, players: crowd, gameLog });
+      expect(text.length).toBeLessThanOrEqual(DISCORD_MESSAGE_LIMIT);
+      expect(truncated).toBe(true);
+      // A clamped body must not end mid-surrogate, or Discord shows a replacement glyph.
+      expect(text).not.toMatch(/[\uD800-\uDBFF]$/);
+    }
+  });
+
+  it('leaves a post that already fits completely untouched', () => {
+    const { text, truncated } = buildDiscordPost({ ...base, gameLog: ['[Day 1 · 20:00] Dev died'] });
+    expect(truncated).toBe(false);
+    expect(text).toContain('[Day 1 · 20:00] Dev died');
+    expect(text).not.toContain('…');
+  });
 });
 
 describe('recapImageFilename', () => {
-  it('prefixes SPOILER_ so Discord blurs the reveal until it is clicked', () => {
+  it('names the file after the script, player count and date', () => {
     const name = recapImageFilename('Trouble Brewing', 10, new Date('2026-07-13T12:00:00Z'));
-    expect(name).toBe('SPOILER_trouble-brewing-10p-2026-07-13.png');
+    expect(name).toBe('trouble-brewing-10p-2026-07-13.png');
   });
 
   it('survives a script name with no usable characters', () => {
     expect(recapImageFilename('!!!', 7, new Date('2026-07-13T12:00:00Z')))
-      .toBe('SPOILER_grimoire-7p-2026-07-13.png');
+      .toBe('grimoire-7p-2026-07-13.png');
   });
 });
