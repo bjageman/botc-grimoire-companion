@@ -368,7 +368,7 @@ export default function SetupPlayerEditModal({
                         ? "bg-gray-100 border-gray-200 text-gray-655"
                         : "bg-gray-800/40 border-gray-700/30 text-gray-400"
                     )}>
-                      Taken: {selectedByPlayer.name}
+                      {selectedByPlayer.name}
                     </span>
                   )}
                 </div>
