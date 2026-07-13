@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { Check, RotateCcw, Moon, Award, ChevronRight } from 'lucide-react';
+import { Check, RotateCcw, Moon, Award } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import DayNightLabel from './DayNightLabel';
 import type { Player } from '../../types';
@@ -53,9 +53,11 @@ export default function NightOrderWidget({
       return;
     }
     setActiveTab(dayNumber === 1 && timeOfDay === 'night' ? 'first' : 'other');
-    // A new phase starts with a clean checklist, except for a Dusk that was just
-    // ticked off to bring us into this night: it belongs to the night it opened.
-    setCheckedItems(prev => (timeOfDay === 'night' && prev.dusk ? { dusk: true } : {}));
+    // The night's checklist is cleared once the day begins. Starting a night keeps
+    // what is already ticked, so Dusk stays checked on the night it opened.
+    if (timeOfDay === 'day') {
+      setCheckedItems({});
+    }
   }, [dayNumber, timeOfDay, setCheckedItems]);
 
   // Clear checks manually
@@ -232,21 +234,16 @@ export default function NightOrderWidget({
 
         {/* Controls */}
         <div className="flex items-center gap-2 self-end sm:self-auto">
-          {/* Current day/night label */}
+          {/* Current day/night label. Dusk and Dawn drive the phase now, so this only reports it. */}
           <div
-            onClick={onToggleTimeOfDay}
             className={cn(
-              "whitespace-nowrap group flex items-center gap-1 px-2.5 py-2.5 rounded-md text-[9px] font-bold tracking-wider uppercase border select-none min-w-[68px] justify-center",
-              onToggleTimeOfDay ? "cursor-pointer active:opacity-60" : "",
+              "whitespace-nowrap flex items-center gap-1 px-2.5 py-2.5 rounded-md text-[9px] font-bold tracking-wider uppercase border select-none min-w-[68px] justify-center",
               timeOfDay === 'day'
                 ? "bg-white border-[#d4d4d8] text-[#3f3f46]"
                 : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
             )}
           >
             <DayNightLabel timeOfDay={timeOfDay} dayNumber={dayNumber} />
-            {onToggleTimeOfDay && (
-              <ChevronRight size={9} className="opacity-0 group-hover:opacity-60 transition-opacity shrink-0" />
-            )}
           </div>
 
           {/* Tabs */}

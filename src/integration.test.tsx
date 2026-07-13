@@ -765,6 +765,12 @@ describe('Storyteller Device Sync', () => {
     secondary.unmount();
   });
 
+  // The board badge is a label now: the storyteller changes phase by ticking Dawn
+  // (night -> day) or Dusk (day -> next night) in the night order.
+  const clickNightOrderStep = (container: HTMLElement, step: 'Dawn' | 'Dusk') => {
+    fireEvent.click(within(container).getByText(step, { selector: '.font-serif' }).closest('div')!);
+  };
+
   it('syncs time-of-day toggle from primary to secondary in real time', async () => {
     seedPrimary();
     const { primary, secondary } = await renderSyncedPair();
@@ -773,12 +779,9 @@ describe('Storyteller Device Sync', () => {
     expect(within(primary.container).getAllByText('Night 1').length).toBeGreaterThan(0);
     expect(within(secondary.container).getAllByText('Night 1').length).toBeGreaterThan(0);
 
-    // Click the time-of-day badge on primary to advance to Day 1
-    const timeBadge = primary.container.querySelector('#grimoire-info-row');
-    expect(timeBadge).not.toBeNull();
-
+    // Tick Dawn on primary to advance to Day 1
     await act(async () => {
-      fireEvent.click(timeBadge!);
+      clickNightOrderStep(primary.container, 'Dawn');
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 
@@ -844,20 +847,20 @@ describe('Storyteller Device Sync', () => {
     const { primary, secondary } = await renderSyncedPair();
 
     // Re-query inside each act so the reference is always fresh after re-renders
-    const clickTimeBadge = async () => {
+    const advancePhase = async (step: 'Dawn' | 'Dusk') => {
       await act(async () => {
-        fireEvent.click(primary.container.querySelector('#grimoire-info-row')!);
+        clickNightOrderStep(primary.container, step);
         await new Promise(resolve => setTimeout(resolve, 150));
       });
     };
 
     // Night → Day: verify via DOM on secondary
-    await clickTimeBadge();
+    await advancePhase('Dawn');
     expect(within(secondary.container).getAllByText('Day 1').length).toBeGreaterThan(0);
 
     // Day → Night 2: verify via sync payload (more reliable than DOM after multiple toggles)
     sentPayloads.length = 0;
-    await clickTimeBadge();
+    await advancePhase('Dusk');
     const nightSync = lastSyncState();
     expect(nightSync).toBeDefined();
     expect(nightSync!.timeOfDay).toBe('night');
@@ -871,9 +874,9 @@ describe('Storyteller Device Sync', () => {
     seedPrimary();
     const { primary, secondary } = await renderSyncedPair();
 
-    const clickTimeBadge = async () => {
+    const advancePhase = async (step: 'Dawn' | 'Dusk') => {
       await act(async () => {
-        fireEvent.click(primary.container.querySelector('#grimoire-info-row')!);
+        clickNightOrderStep(primary.container, step);
         await new Promise(resolve => setTimeout(resolve, 150));
       });
     };
@@ -883,7 +886,8 @@ describe('Storyteller Device Sync', () => {
     const targetToggles = 18;
     for (let i = 0; i < targetToggles; i++) {
       sentPayloads.length = 0;
-      await clickTimeBadge();
+      // Even steps end the night (Dawn), odd steps start the next one (Dusk)
+      await advancePhase(i % 2 === 0 ? 'Dawn' : 'Dusk');
 
       const lastSync = lastSyncState();
       expect(lastSync).toBeDefined();
@@ -1238,12 +1242,11 @@ describe('Storyteller Grimoire Bug Fixes', () => {
     window.location.hash = '#/standard';
     const storyteller = render(<StandardSetup theme="dark" toggleTheme={vi.fn()} />);
 
-    // Click the time-of-day badge to toggle from Night 1 to Day 1
-    const timeBadge = storyteller.container.querySelector('#grimoire-info-row');
-    expect(timeBadge).not.toBeNull();
-
+    // Tick Dawn in the night order to move from Night 1 to Day 1
     await act(async () => {
-      fireEvent.click(timeBadge!);
+      fireEvent.click(
+        within(storyteller.container).getByText('Dawn', { selector: '.font-serif' }).closest('div')!
+      );
       await new Promise(resolve => setTimeout(resolve, 50));
     });
 

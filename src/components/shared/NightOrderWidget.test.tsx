@@ -197,10 +197,10 @@ describe('NightOrderWidget', () => {
     expect(handleSetCheckedItems).toHaveBeenCalledWith({ dusk: true });
   });
 
-  it('keeps the Dusk check but clears the rest when it advances to the next night', () => {
+  it('ticking Dusk only moves the day on to the next night', () => {
     // Mirrors how the game screens wire the widget up: night -> day, day -> next night
-    function Harness() {
-      const [timeOfDay, setTimeOfDay] = useState<'night' | 'day'>('day');
+    function Harness({ startAt }: { startAt: 'night' | 'day' }) {
+      const [timeOfDay, setTimeOfDay] = useState<'night' | 'day'>(startAt);
       const [dayNumber, setDayNumber] = useState(1);
       const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
@@ -224,19 +224,33 @@ describe('NightOrderWidget', () => {
       );
     }
 
-    render(<Harness />);
-
     const lunatic = () => screen.getByText('Lunatic', { selector: '.font-serif' });
     const dusk = () => screen.getByText('Dusk', { selector: '.font-serif' });
+    const dawn = () => screen.getByText('Dawn', { selector: '.font-serif' });
+
+    const { unmount } = render(<Harness startAt="day" />);
 
     fireEvent.click(lunatic().closest('div')!);
     expect(lunatic().className).toContain('line-through');
 
     fireEvent.click(dusk().closest('div')!);
 
-    // We are now on the next night, with Dusk still ticked and the wakes cleared
+    // Night 2 has begun and nothing else about the checklist has changed
     expect(screen.getByText('Night 2')).not.toHaveClass('invisible');
     expect(dusk().className).toContain('line-through');
+    expect(lunatic().className).toContain('line-through');
+
+    unmount();
+
+    // Dawn is what clears the night's work, as the day begins
+    render(<Harness startAt="night" />);
+
+    fireEvent.click(lunatic().closest('div')!);
+    expect(lunatic().className).toContain('line-through');
+
+    fireEvent.click(dawn().closest('div')!);
+
+    expect(screen.getByText('Day 1')).not.toHaveClass('invisible');
     expect(lunatic().className).not.toContain('line-through');
   });
 

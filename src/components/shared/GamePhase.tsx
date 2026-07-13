@@ -277,7 +277,9 @@ export default function GamePhase({
             players={players}
             timeOfDay={timeOfDay}
             dayNumber={dayNumber}
-            toggleTimeOfDay={!isSynced ? toggleTimeOfDay : undefined}
+            // Where the night order is shown, Dusk and Dawn are the only way to change
+            // phase and the board badge is a label. Without it the badge stays clickable.
+            toggleTimeOfDay={!isSynced && !showNightOrder ? toggleTimeOfDay : undefined}
             onSelectPlayer={setSelectedPlayerId}
             rolesData={grimoireRolesData}
             onResetDead={onResetDead}
