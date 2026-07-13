@@ -569,6 +569,7 @@ export default function GrimoireBoard({
                     width: `${reminderTokenSizePct}%`,
                     height: `${reminderTokenSizePct}%`,
                     zIndex: 55,
+                    transition: 'left 250ms ease-in-out, top 250ms ease-in-out, background-color 150ms',
                   }}
                   onTouchStart={(e) => e.stopPropagation()}
                   onClick={(e) => {
@@ -607,6 +608,7 @@ export default function GrimoireBoard({
                     width: `${reminderTokenSizePct}%`,
                     height: `${reminderTokenSizePct}%`,
                     zIndex: 55,
+                    transition: 'left 250ms ease-in-out, top 250ms ease-in-out',
                   }}
                 >
                 <button
