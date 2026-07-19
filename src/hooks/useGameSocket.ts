@@ -9,16 +9,7 @@ const NTFY_PASSWORD = import.meta.env.VITE_NTFY_ADMIN_PASSWORD || '';
 const PUBLISH_MAX_ATTEMPTS = 4;
 const PUBLISH_BASE_DELAY_MS = 300;
 
-/**
- * Build the ?auth= query parameter string for ntfy.
- *
- * ntfy expects the ?auth= value to be the *base64url-encoded* form of the
- * entire Authorization header value (e.g. base64url("Basic <base64(u:p)>")).
- * Standard URL-encoding ("Basic%20...") is NOT accepted and returns a 500.
- * Using ?auth= for both the WebSocket URL and the POST URL avoids sending an
- * Authorization header, which would otherwise trigger a CORS preflight that
- * ntfy cannot satisfy when Access-Control-Allow-Origin is set to '*'.
- */
+/** Build the ntfy ?auth= param (base64url of the full Authorization header value); ?auth= avoids a CORS preflight. */
 function buildAuthParam(): string {
   if (!NTFY_USERNAME || !NTFY_PASSWORD) return '';
   const headerValue = `Basic ${btoa(`${NTFY_USERNAME}:${NTFY_PASSWORD}`)}`;

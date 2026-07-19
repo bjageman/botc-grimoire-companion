@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-/**
- * Buffers a text field locally per entity (e.g. a player id) and only flushes
- * it via onFlush when the entity changes or the component unmounts, instead
- * of writing on every keystroke.
- */
+/** Buffers a text field per entity, flushing via onFlush only on entity change/unmount, not every keystroke. */
 export function useBufferedField(
   entityId: string,
   originalValue: string,

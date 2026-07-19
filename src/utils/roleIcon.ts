@@ -1,10 +1,6 @@
 import type { Role } from '../types';
 
-/**
- * Returns an <img> onError handler that falls back to a custom role's own
- * image URL (from an uploaded script) when the local bundled icon 404s,
- * before finally hiding the element if neither is available.
- */
+/** onError handler that falls back to a custom role's own image URL when the local icon 404s, then hides. */
 export function roleIconFallback(role: Pick<Role, 'image'> | undefined | null, isEvil = false) {
   return (e: React.SyntheticEvent<HTMLImageElement>) => {
     const img = e.currentTarget;

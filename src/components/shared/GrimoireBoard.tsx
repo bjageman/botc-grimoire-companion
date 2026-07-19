@@ -413,8 +413,7 @@ export default function GrimoireBoard({
         ) : <div />}
       </div>
 
-      {/* Row 2: info badges — mobile only. Independent flex row so label width is sized to its
-          own content, not tied to the button row's fixed column widths. */}
+      {/* Row 2: info badges (mobile only) — own flex row so label width fits its content, not the button row's columns. */}
       <div className="md:hidden w-full px-4 mb-2 max-w-[450px] flex items-center justify-between gap-3">
         <div
           id="grimoire-info-row"
