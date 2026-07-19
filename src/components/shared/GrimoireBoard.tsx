@@ -192,11 +192,7 @@ export default function GrimoireBoard({
     const count = players.length;
     const isDesktop = boardAspect < 1.15;
 
-    // On desktop the board grows to fill its (now wider) column. Token sizes
-    // were hand-tuned in px against a fixed baseline width, so scale them by
-    // how much wider the board actually is. Floored at 1x so this never
-    // shrinks anything on mobile/landscape (where the board is capped at the
-    // baseline) — only enlarges on true desktop where md: lifts the width cap.
+    // Desktop board fills its wider column; scale px token sizes by board width vs baseline, floored at 1x so mobile/landscape never shrink.
     const baseline = count <= 6 ? 560 : 680;
     const s = Math.max(1, boardWidth / baseline);
     const px = (v: number) => `${+(v * s).toFixed(2)}px`;
@@ -417,8 +413,7 @@ export default function GrimoireBoard({
         ) : <div />}
       </div>
 
-      {/* Row 2: info badges — mobile only. Independent flex row so label width is sized to its
-          own content, not tied to the button row's fixed column widths. */}
+      {/* Row 2: info badges (mobile only) — own flex row so label width fits its content, not the button row's columns. */}
       <div className="md:hidden w-full px-4 mb-2 max-w-[450px] flex items-center justify-between gap-3">
         <div
           id="grimoire-info-row"

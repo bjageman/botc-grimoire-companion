@@ -105,10 +105,7 @@ export function parseScriptFile(file: File): Promise<{ name: string; author: str
             );
             if (matched) return matched;
 
-            // Custom/homebrew character not in our known role list — best-effort synthesize
-            // it from whatever the script JSON itself provided, instead of silently forcing
-            // it to Townsfolk (which used to corrupt the evil-team distribution whenever a
-            // custom Minion/Demon/Outsider was uploaded).
+            // Custom character not in our list — synthesize from the script JSON's own fields instead of forcing Townsfolk (which corrupted evil-team distribution).
             const itemObj = item as Record<string, unknown>;
             const rawTeam = typeof itemObj.team === 'string' ? itemObj.team.toLowerCase() : '';
             const normalizedTeam = rawTeam === 'traveller' ? 'traveler' : rawTeam;
