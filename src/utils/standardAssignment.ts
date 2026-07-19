@@ -247,7 +247,6 @@ export function performStandardAssignment(
     return assignSimpleRolesToPlayers(players, shuffle(finalRolesList), travelerIds, basePlayers, selectionRoles, 'legion');
   }
 
-  // Riot transforms Minions during play (day 3), not at setup, so it's just a normal single Demon here.
 
   // Normal / non-Legion setup
   const nonLegionDemons = dems.filter(d => d.id !== 'legion');
