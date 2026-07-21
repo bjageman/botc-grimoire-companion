@@ -191,6 +191,16 @@ export default function GrimoireBoard({
     return [...ids];
   }, [players, rolesData, includeAllScriptReminders]);
 
+  // Living players who count toward the game's end conditions — travelers are excluded.
+  const finalCount = useMemo(() => players.filter(p => {
+    if (p.isDead) return false;
+    const ids = p.roleIds && p.roleIds.length > 0 ? p.roleIds : (p.roleId ? [p.roleId] : []);
+    return !ids.some(id => {
+      const r = rolesData.find(role => role.id === id) || (officialRoles as Role[]).find(role => role.id === id);
+      return r?.team === 'traveler';
+    });
+  }).length, [players, rolesData]);
+
   const touchStartedFannedRef = useRef<boolean>(false);
   const touchStartTimeRef = useRef<number>(0);
 
@@ -443,18 +453,31 @@ export default function GrimoireBoard({
           )}
         </div>
 
-        <div
-          id="grimoire-alive-badge-mobile"
-          onClick={onResetDead}
-          className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase select-none border transition-opacity whitespace-nowrap",
-            onResetDead ? "cursor-pointer hover:opacity-70 active:opacity-50" : "",
-            isLightModeActive
-              ? "bg-[#ffffff]/80 border-[#d4d4d8] text-[#3f3f46]"
-              : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
-          )}
-        >
-          {players.filter(p => !p.isDead).length}/{players.length} Alive
+        <div className="flex flex-col items-end gap-1.5">
+          <div
+            id="grimoire-alive-badge-mobile"
+            onClick={onResetDead}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase select-none border transition-opacity whitespace-nowrap",
+              onResetDead ? "cursor-pointer hover:opacity-70 active:opacity-50" : "",
+              isLightModeActive
+                ? "bg-[#ffffff]/80 border-[#d4d4d8] text-[#3f3f46]"
+                : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
+            )}
+          >
+            {players.filter(p => !p.isDead).length}/{players.length} Alive
+          </div>
+          <div
+            id="grimoire-final-badge-mobile"
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase select-none border whitespace-nowrap",
+              isLightModeActive
+                ? "bg-[#ffffff]/80 border-[#d4d4d8] text-[#3f3f46]"
+                : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
+            )}
+          >
+            Final {finalCount}
+          </div>
         </div>
       </div>
 
@@ -488,19 +511,32 @@ export default function GrimoireBoard({
           )}
         </div>
 
-        {/* Alive count — upper right, desktop only */}
-        <div
-          id="grimoire-alive-badge"
-          onClick={onResetDead}
-          className={cn(
-            "hidden md:block absolute top-4 right-4 z-30 px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase select-none border transition-opacity",
-            onResetDead ? "cursor-pointer hover:opacity-70 active:opacity-50" : "",
-            isLightModeActive
-              ? "bg-[#ffffff]/80 border-[#d4d4d8] text-[#3f3f46]"
-              : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
-          )}
-        >
-          {players.filter(p => !p.isDead).length}/{players.length} Alive
+        {/* Alive + final counts — upper right, desktop only */}
+        <div className="hidden md:flex absolute top-4 right-4 z-30 flex-col items-end gap-1.5">
+          <div
+            id="grimoire-alive-badge"
+            onClick={onResetDead}
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase select-none border transition-opacity",
+              onResetDead ? "cursor-pointer hover:opacity-70 active:opacity-50" : "",
+              isLightModeActive
+                ? "bg-[#ffffff]/80 border-[#d4d4d8] text-[#3f3f46]"
+                : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
+            )}
+          >
+            {players.filter(p => !p.isDead).length}/{players.length} Alive
+          </div>
+          <div
+            id="grimoire-final-badge"
+            className={cn(
+              "px-3 py-1.5 rounded-md text-[10px] font-bold tracking-wider uppercase select-none border",
+              isLightModeActive
+                ? "bg-[#ffffff]/80 border-[#d4d4d8] text-[#3f3f46]"
+                : "bg-[#1f1f23]/80 border-[#27272a] text-[#a1a1aa]"
+            )}
+          >
+            Final {finalCount}
+          </div>
         </div>
 
         {/* Rotate buttons — center of board */}
