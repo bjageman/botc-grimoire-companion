@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { Search, X, Settings } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -46,6 +47,9 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
   const [showAllTravelers, setShowAllTravelers] = useState(() => {
     return localStorage.getItem('botc-script-show-all-travelers') === 'true';
   });
+  const [bigFont, setBigFont] = useState(() => {
+    return localStorage.getItem('botc-script-big-font') === 'true';
+  });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -64,6 +68,11 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
   const handleToggleAllTravelers = (val: boolean) => {
     setShowAllTravelers(val);
     localStorage.setItem('botc-script-show-all-travelers', String(val));
+  };
+
+  const handleToggleBigFont = (val: boolean) => {
+    setBigFont(val);
+    localStorage.setItem('botc-script-big-font', String(val));
   };
 
   useScrollLock(isOpen);
@@ -149,16 +158,16 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Character list modal */}
       <div
-        className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm"
         onClick={handleClose}
       >
         <div
           className={cn(
-            "w-full max-w-2xl rounded-lg p-5 flex flex-col shadow-2xl max-h-[85vh]",
+            "w-full max-w-2xl rounded-lg p-5 flex flex-col shadow-2xl max-h-[92vh] sm:max-h-[85vh]",
             isLightModeActive ? "bg-[#fdfaf2] border border-amber-900/10 text-gray-800" : "bg-gray-900 border border-gray-800 text-gray-150"
           )}
           onClick={(e) => e.stopPropagation()}
@@ -254,6 +263,17 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
                       isLightModeActive={isLightModeActive}
                     />
                   </label>
+                  <label className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-md select-none cursor-pointer hover:bg-gray-500/10">
+                    <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-700" : "text-gray-300")}>
+                      Bigger Font
+                    </span>
+                    <ToggleSwitch
+                      id="script-big-font-checkbox"
+                      checked={bigFont}
+                      onChange={handleToggleBigFont}
+                      isLightModeActive={isLightModeActive}
+                    />
+                  </label>
                 </div>
               )}
             </div>
@@ -275,19 +295,18 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
                         type="button"
                         onClick={() => setSelectedRole(role)}
                         className={cn(
-                          "flex gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-200 w-full hover:scale-[1.01] cursor-pointer focus:outline-none",
-                          showDetail ? "items-start" : "items-center",
+                          "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-200 w-full hover:scale-[1.01] cursor-pointer focus:outline-none",
                           isLightModeActive
                             ? `bg-white/80 border-gray-200/60 hover:bg-white ${hover} hover:shadow-sm`
                             : `bg-gray-955/65 border-gray-850/45 hover:bg-gray-850/80 ${hover}`
                         )}
                       >
-                        <span className={cn("w-6 h-6 bg-white rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-gray-100", showDetail && "mt-0.5")}>
-                          <img key={role.id} src={`/icons/${role.id}.svg`} alt={role.name} className="w-[75%] h-[75%] object-contain"
+                        <span className="w-6 h-6 bg-white rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-gray-100">
+                          <img key={role.id} src={`/icons/${role.id}.svg`} alt={role.name} className="w-[92%] h-[92%] object-contain"
                             onError={roleIconFallback(role, role.team === 'minion' || role.team === 'demon')} />
                         </span>
-                        <span className={cn("min-w-0 flex-1 text-[11px] leading-snug", !showDetail && "truncate")}>
-                          <span className={cn("font-bold text-xs", isLightModeActive ? "text-gray-900" : "text-gray-100")}>{role.name}</span>
+                        <span className={cn("min-w-0 flex-1 leading-snug", bigFont ? "text-[13px]" : "text-[11px]", !showDetail && "truncate")}>
+                          <span className={cn("font-bold", bigFont ? "text-sm" : "text-xs", isLightModeActive ? "text-gray-900" : "text-gray-100")}>{role.name}</span>
                           {showDetail && abilityFor(role) && (
                             <span className={cn(isLightModeActive ? "text-gray-600" : "text-gray-400")}> — {abilityFor(role)}</span>
                           )}
@@ -315,6 +334,7 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
           modalId="script-character-details-modal"
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }
