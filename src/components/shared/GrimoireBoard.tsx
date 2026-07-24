@@ -919,7 +919,7 @@ export default function GrimoireBoard({
                     <div
                       style={{
                         position: 'absolute',
-                        top: '10%',
+                        top: '15%',
                         left: '50%',
                         transform: 'translateX(-50%)',
                         lineHeight: 1,
