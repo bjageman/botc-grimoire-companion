@@ -5,7 +5,14 @@ import { cn } from '../../utils/cn';
 import { roleIconFallback } from '../../utils/roleIcon';
 import ToggleSwitch from './ToggleSwitch';
 import CharacterDetailModal from './CharacterDetailModal';
+import officialRoles from '../../official_roles.json';
 import type { Role } from '../../types';
+
+const officialAbility = new Map(
+  (officialRoles as Array<{ id: string; ability?: string }>).map(r => [r.id, r.ability])
+);
+
+const abilityFor = (role: Role) => role.ability ?? officialAbility.get(role.id) ?? '';
 
 interface Props {
   isOpen: boolean;
@@ -30,10 +37,18 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
   const [sortAlphabetically, setSortAlphabetically] = useState(() => {
     return localStorage.getItem('botc-sort-alphabetically') === 'true';
   });
+  const [showDetail, setShowDetail] = useState(() => {
+    return localStorage.getItem('botc-script-show-detail') === 'true';
+  });
 
   const handleToggleSort = (val: boolean) => {
     setSortAlphabetically(val);
     localStorage.setItem('botc-sort-alphabetically', String(val));
+  };
+
+  const handleToggleDetail = (val: boolean) => {
+    setShowDetail(val);
+    localStorage.setItem('botc-script-show-detail', String(val));
   };
 
   useScrollLock(isOpen);
@@ -117,7 +132,7 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
               <input
                 id="script-search-input"
                 type="text"
-                placeholder="Search character by name or type..."
+                placeholder="Search by name or type"
                 className="bg-transparent flex-1 outline-none text-xs text-gray-900 placeholder-gray-400 w-full"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -128,6 +143,17 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
                 </button>
               )}
             </div>
+             <label className="flex flex-col sm:flex-row-reverse items-center gap-1 sm:gap-2 select-none cursor-pointer shrink-0">
+              <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-600" : "text-gray-400")}>
+                Detail
+              </span>
+                <ToggleSwitch
+                  id="script-show-detail-checkbox"
+                  checked={showDetail}
+                  onChange={handleToggleDetail}
+                  isLightModeActive={isLightModeActive}
+                />
+            </label>
              <label className="flex flex-col sm:flex-row-reverse items-center gap-1 sm:gap-2 select-none cursor-pointer shrink-0">
               <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-600" : "text-gray-400")}>
                 Sort
@@ -150,26 +176,31 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
                   <h4 className={cn("text-xs uppercase font-bold tracking-wider border-b pb-1 flex items-center gap-1.5", color, border)}>
                     {label} <span className="text-[10px] text-gray-500 font-normal font-mono">({teamRoles.length})</span>
                   </h4>
-                  <div className="columns-2 gap-2 [column-fill:balance]">
+                  <div className={cn("grid gap-2", showDetail ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2")}>
                     {teamRoles.map(role => (
-                      <div key={role.id} className="break-inside-avoid mb-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedRole(role)}
-                          className={cn(
-                            "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-200 w-full hover:scale-[1.02] cursor-pointer focus:outline-none",
-                            isLightModeActive
-                              ? `bg-white/80 border-gray-200/60 hover:bg-white ${hover} hover:shadow-sm`
-                              : `bg-gray-955/65 border-gray-850/45 hover:bg-gray-850/80 ${hover}`
+                      <button
+                        key={role.id}
+                        type="button"
+                        onClick={() => setSelectedRole(role)}
+                        className={cn(
+                          "flex gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-200 w-full hover:scale-[1.01] cursor-pointer focus:outline-none",
+                          showDetail ? "items-start" : "items-center",
+                          isLightModeActive
+                            ? `bg-white/80 border-gray-200/60 hover:bg-white ${hover} hover:shadow-sm`
+                            : `bg-gray-955/65 border-gray-850/45 hover:bg-gray-850/80 ${hover}`
+                        )}
+                      >
+                        <span className={cn("w-6 h-6 bg-white rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-gray-100", showDetail && "mt-0.5")}>
+                          <img key={role.id} src={`/icons/${role.id}.svg`} alt={role.name} className="w-[75%] h-[75%] object-contain"
+                            onError={roleIconFallback(role, role.team === 'minion' || role.team === 'demon')} />
+                        </span>
+                        <span className={cn("min-w-0 flex-1 text-[11px] leading-snug", !showDetail && "truncate")}>
+                          <span className={cn("font-bold text-xs", isLightModeActive ? "text-gray-900" : "text-gray-100")}>{role.name}</span>
+                          {showDetail && abilityFor(role) && (
+                            <span className={cn(isLightModeActive ? "text-gray-600" : "text-gray-400")}> — {abilityFor(role)}</span>
                           )}
-                        >
-                          <span className="w-6 h-6 bg-white rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-gray-100">
-                            <img key={role.id} src={`/icons/${role.id}.svg`} alt={role.name} className="w-[75%] h-[75%] object-contain"
-                              onError={roleIconFallback(role, role.team === 'minion' || role.team === 'demon')} />
-                          </span>
-                          <span className={cn("font-bold text-xs truncate", isLightModeActive ? "text-gray-900" : "text-gray-100")}>{role.name}</span>
-                        </button>
-                      </div>
+                        </span>
+                      </button>
                     ))}
                   </div>
                 </div>
