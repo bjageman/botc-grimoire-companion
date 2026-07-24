@@ -265,7 +265,7 @@ export default function PlayerDetailsModal({
               ) : (
                 <div className="flex items-center gap-2 mt-1.5 -mb-2">
                   {!allowMultipleRoles && onUpdatePronouns && (
-                    <div className="relative shrink-0" ref={pronounsRef}>
+                    <div className="relative shrink-0 z-30" ref={pronounsRef}>
                       <button
                         id="detail-player-pronouns-select"
                         type="button"
@@ -377,19 +377,6 @@ export default function PlayerDetailsModal({
            >
              {p.isDead ? 'Dead' : 'Alive'}
            </button>
-           <button
-             id="detail-alignment-toggle-button"
-             type="button"
-             onClick={(e) => { e.stopPropagation(); onToggleEvil(p.id); }}
-             className={cn(
-               'px-4 py-2 rounded text-xs font-bold border transition-all shadow-sm flex-1',
-               !isEvil
-                 ? 'bg-clocktower-townsfolk border-clocktower-townsfolk/40 text-white hover:bg-blue-600'
-                 : 'bg-clocktower-minion border-clocktower-minion/40 text-white hover:bg-red-500'
-             )}
-           >
-             {isEvil ? 'Evil' : 'Good'}
-           </button>
            {!allowMultipleRoles && (
              <button
                id="detail-drunk-poisoned-toggle-button"
@@ -407,6 +394,19 @@ export default function PlayerDetailsModal({
                Droisoned
              </button>
            )}
+           <button
+             id="detail-alignment-toggle-button"
+             type="button"
+             onClick={(e) => { e.stopPropagation(); onToggleEvil(p.id); }}
+             className={cn(
+               'px-4 py-2 rounded text-xs font-bold border transition-all shadow-sm flex-1',
+               !isEvil
+                 ? 'bg-clocktower-townsfolk border-clocktower-townsfolk/40 text-white hover:bg-blue-600'
+                 : 'bg-clocktower-minion border-clocktower-minion/40 text-white hover:bg-red-500'
+             )}
+           >
+             {isEvil ? 'Evil' : 'Good'}
+           </button>
          </div>
 
          {(p.isDead || isLilMonstaGame) && (
@@ -433,7 +433,7 @@ export default function PlayerDetailsModal({
                  )}
                  title={isSynced ? "Dead vote token is synced from Storyteller" : undefined}
                >
-                 🗳️ {p.hasDeadVote ? 'Vote: Active' : 'Vote: Spent'}
+                 {p.hasDeadVote ? 'Vote: Active' : 'Vote: Spent'}
                </button>
              )}
 
