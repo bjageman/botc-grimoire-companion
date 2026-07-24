@@ -5,7 +5,7 @@ import CharacterToken from './CharacterToken';
 import type { Role } from '../../types';
 import officialRoles from '../../official_roles.json';
 
-const NOTE_PROMPTS = ['You Are', 'This Character Selected You', 'You Have This Ability', 'This Character Is In Play', 'This Character Is NOT In Play', 'Do You Want To Use This Ability?'] as const;
+const NOTE_PROMPTS = ['You Are', 'This Selected You', 'You Have This Ability', 'This Is In Play', 'This Is NOT In Play', 'Use This Ability?'] as const;
 
 interface CharacterDetailModalProps {
   role: Role;

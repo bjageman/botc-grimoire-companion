@@ -10,6 +10,17 @@ const BOARD_WIDTH = 900;
 const BOARD_HEIGHT = 680;
 const CARD_PADDING = 40;
 const REMINDER_SIZE_PCT = 26;
+// The shared grimoire layout sizes tokens for the on-screen board, which leaves big gaps
+// in the recap export; scale tokens (and their names) up to fill the space.
+const RECAP_TOKEN_SCALE = 1.28;
+
+const scalePx = (value: unknown, factor: number): string | undefined => {
+  if (typeof value !== 'string') return value as string | undefined;
+  const num = parseFloat(value);
+  if (Number.isNaN(num)) return value;
+  const unit = value.replace(/[-0-9.]/g, '');
+  return `${+(num * factor).toFixed(2)}${unit}`;
+};
 
 const DISPLAY_FONT = 'Georgia, "Times New Roman", serif';
 
@@ -22,18 +33,49 @@ interface RecapCardProps {
   dayNumber: number;
   timeOfDay: 'night' | 'day';
   date?: Date;
+  isLightModeActive?: boolean;
   onLayoutReady?: () => void;
 }
 
+const THEME = {
+  dark: {
+    cardBg: 'linear-gradient(160deg, #16161a 0%, #0b0b0e 55%, #14090b 100%)',
+    boardBg: '#141416',
+    boardBorder: '#27272a',
+    title: '#f4e4bc',
+    subtitle: '#8b8b94',
+    footer: '#5b5b66',
+    nameAlive: '#1a1a1a',
+    nameGlow: '0 1.5px 3px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,1), 0 0 8px rgba(255,255,255,0.9)',
+  },
+  light: {
+    cardBg: 'linear-gradient(160deg, #fdfaf2 0%, #f4ecdb 55%, #f7ede4 100%)',
+    boardBg: '#fbf7ee',
+    boardBorder: '#e7ddc7',
+    title: '#7a5a24',
+    subtitle: '#8a8172',
+    footer: '#9a8f7d',
+    nameAlive: '#1a1a1a',
+    nameGlow: '0 1px 2px rgba(255,255,255,1), 0 0 4px rgba(255,255,255,0.95)',
+  },
+} as const;
+
 const RecapCard = forwardRef<HTMLDivElement, RecapCardProps>(function RecapCard(
-  { players, rolesData, reminderTokens, gameLog, scriptName, dayNumber, timeOfDay, date = new Date(), onLayoutReady },
+  { players, rolesData, reminderTokens, gameLog, scriptName, dayNumber, timeOfDay, date = new Date(), isLightModeActive = false, onLayoutReady },
   ref
 ) {
+  const theme = isLightModeActive ? THEME.light : THEME.dark;
   const { boardRef, isMeasured, positions, btnStyle, nameStyle, getDynamicFontSize } = useGrimoireLayout(players.length);
 
   useEffect(() => {
     if (isMeasured) onLayoutReady?.();
   }, [isMeasured, onLayoutReady]);
+
+  const scaledBtnStyle = {
+    ...btnStyle,
+    width: scalePx(btnStyle.width, RECAP_TOKEN_SCALE),
+    height: scalePx(btnStyle.height, RECAP_TOKEN_SCALE),
+  };
 
   const winner = deriveWinner(gameLog);
   const outcome = winner === 'good' ? '🌟 Good wins' : winner === 'evil' ? '😈 Evil wins' : null;
@@ -47,16 +89,16 @@ const RecapCard = forwardRef<HTMLDivElement, RecapCardProps>(function RecapCard(
       style={{
         width: BOARD_WIDTH + CARD_PADDING * 2,
         padding: CARD_PADDING,
-        background: 'linear-gradient(160deg, #16161a 0%, #0b0b0e 55%, #14090b 100%)',
+        background: theme.cardBg,
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <div style={{ fontFamily: DISPLAY_FONT, fontSize: 40, fontWeight: 700, color: '#f4e4bc', lineHeight: 1.1 }}>
+          <div style={{ fontFamily: DISPLAY_FONT, fontSize: 40, fontWeight: 700, color: theme.title, lineHeight: 1.1 }}>
             {scriptName}
           </div>
-          <div style={{ fontSize: 17, color: '#8b8b94', marginTop: 8, letterSpacing: '0.02em' }}>
+          <div style={{ fontSize: 17, color: theme.subtitle, marginTop: 8, letterSpacing: '0.02em' }}>
             {players.length} players · {alive} alive · ended {phase} · {when}
           </div>
         </div>
@@ -85,8 +127,8 @@ const RecapCard = forwardRef<HTMLDivElement, RecapCardProps>(function RecapCard(
           position: 'relative',
           width: BOARD_WIDTH,
           height: BOARD_HEIGHT,
-          background: '#141416',
-          border: '1px solid #27272a',
+          background: theme.boardBg,
+          border: `1px solid ${theme.boardBorder}`,
           borderRadius: 40,
           containerType: 'size',
         }}
@@ -156,7 +198,7 @@ const RecapCard = forwardRef<HTMLDivElement, RecapCardProps>(function RecapCard(
 
               <div
                 style={{
-                  ...btnStyle,
+                  ...scaledBtnStyle,
                   position: 'relative',
                   borderRadius: '9999px',
                   display: 'flex',
@@ -196,32 +238,20 @@ const RecapCard = forwardRef<HTMLDivElement, RecapCardProps>(function RecapCard(
                 <span
                   style={{
                     ...nameStyle,
-                    fontSize: getDynamicFontSize(p.name),
+                    fontSize: scalePx(getDynamicFontSize(p.name), RECAP_TOKEN_SCALE),
                     position: 'relative',
                     zIndex: 20,
                     textAlign: 'center',
                     fontWeight: 700,
                     lineHeight: 1.05,
                     letterSpacing: '-0.02em',
-                    color: '#1a1a1a',
-                    opacity: p.isDead ? 0.75 : 1,
-                    textDecoration: p.isDead ? 'line-through' : 'none',
-                    textShadow: p.isDead
-                      ? 'none'
-                      : '0 1.5px 3px rgba(255,255,255,1), 0 0 5px rgba(255,255,255,1), 0 0 8px rgba(255,255,255,0.9)',
+                    color: p.isDead ? '#d1d5db' : theme.nameAlive,
+                    textShadow: p.isDead ? 'none' : theme.nameGlow,
                     wordBreak: 'break-word',
                   }}
                 >
                   {p.name}
                 </span>
-
-                {p.isDead && p.hasDeadVote && (
-                  <div
-                    style={{ position: 'absolute', top: '22%', left: '50%', transform: 'translateX(-50%)', fontSize: 22, lineHeight: 1, zIndex: 30 }}
-                  >
-                    🗳️
-                  </div>
-                )}
               </div>
             </div>
           );
@@ -235,7 +265,7 @@ const RecapCard = forwardRef<HTMLDivElement, RecapCardProps>(function RecapCard(
           alignItems: 'center',
           marginTop: 18,
           fontSize: 14,
-          color: '#5b5b66',
+          color: theme.footer,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
         }}

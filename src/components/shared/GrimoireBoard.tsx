@@ -847,7 +847,7 @@ export default function GrimoireBoard({
                     }}
                     className={cn(
                       "font-bold font-sans tracking-tighter text-center leading-[1.05] z-20 relative pointer-events-none select-none max-w-[82%] inline-flex items-center justify-center gap-1 align-middle",
-                      p.isDead ? "text-[#1a1a1a] opacity-75" : "text-[#1a1a1a] font-bold"
+                      p.isDead ? "text-gray-300" : "text-[#1a1a1a] font-bold"
                     )}
                   >
                     {remotePlayerIds?.has(p.id) && (
@@ -860,9 +860,14 @@ export default function GrimoireBoard({
                     <span
                       style={{
                         fontSize: dynamicPronounFontSize,
-                        textShadow: '0 1px 2px rgba(255,255,255,1.0), 0 0 4px rgba(255,255,255,0.9)'
+                        textShadow: p.isDead
+                          ? 'none'
+                          : '0 1px 2px rgba(255,255,255,1.0), 0 0 4px rgba(255,255,255,0.9)'
                       }}
-                      className="text-[#555] font-medium leading-none pointer-events-none select-none z-20 relative"
+                      className={cn(
+                        "font-medium leading-none pointer-events-none select-none z-20 relative",
+                        p.isDead ? "text-gray-200" : "text-[#555]"
+                      )}
                     >
                       {p.pronouns}
                     </span>

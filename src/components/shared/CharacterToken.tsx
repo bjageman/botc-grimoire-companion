@@ -26,6 +26,17 @@ const TEAM_COLOR: Record<Role['team'], string> = {
 
 const teamFill = (team: Role['team']) => TEAM_COLOR[team] ?? '#6b7280';
 
+// Brighter team colors used for the curved labels on the dark dead-token face
+const TEAM_COLOR_DEAD: Record<Role['team'], string> = {
+  townsfolk: '#60a5fa',
+  outsider: '#34d399',
+  minion: '#fca5a5',
+  demon: '#f87171',
+  traveler: '#c084fc',
+};
+
+const teamFillDead = (team: Role['team']) => TEAM_COLOR_DEAD[team] ?? '#cbd5e1';
+
 export default function CharacterToken({ role, isEvil, size, idPrefix, className, iconSizePct = 85, isDead = false, blankRing = false }: CharacterTokenProps) {
   const sizeStyle = size !== undefined ? { width: size, height: size } : undefined;
 
@@ -47,11 +58,10 @@ export default function CharacterToken({ role, isEvil, size, idPrefix, className
   const evil = isEvil ?? (role ? (role.team === 'minion' || role.team === 'demon') : false);
 
   return (
-    <div className={cn('relative shrink-0', size === undefined && 'w-full h-full', className)} style={sizeStyle}>
+    <div className={cn('relative shrink-0', size === undefined && 'w-full h-full', className)} style={{ ...(sizeStyle ?? {}), opacity: isDead ? 0.7 : undefined }}>
       {/* Background layer: ring + dashed guide circle, behind the icon */}
       <svg
         viewBox="0 0 200 200"
-        opacity={isDead ? 0.6 : 1}
         className="w-full h-full absolute inset-0 z-0 select-none pointer-events-none"
       >
         <defs>
@@ -62,11 +72,11 @@ export default function CharacterToken({ role, isEvil, size, idPrefix, className
           cx="100"
           cy="100"
           r="90"
-          fill={isDead ? '#e4e4e7' : '#ffffff'}
+          fill={isDead ? '#2f2f37' : '#ffffff'}
           stroke={evil ? TEAM_COLOR.minion : TEAM_COLOR.townsfolk}
           strokeWidth={6}
         />
-        <circle cx="100" cy="100" r="58" fill="none" stroke="#e4e4e7" strokeWidth="1" strokeDasharray="3 3" />
+        <circle cx="100" cy="100" r="58" fill="none" stroke={isDead ? '#52525b' : '#e4e4e7'} strokeWidth="1" strokeDasharray="3 3" />
       </svg>
       {/* Icon layer: clipped to the token circle so any image, whatever its shape, stays inside the ring */}
       {role && (
@@ -76,7 +86,7 @@ export default function CharacterToken({ role, isEvil, size, idPrefix, className
               key={role.id}
               src={`/icons/${role.id}.svg`}
               alt={role.name}
-              className={cn('w-full h-full object-contain', isDead ? 'grayscale opacity-15' : 'opacity-35')}
+              className={cn('w-full h-full object-contain', isDead ? 'brightness-150 saturate-50 opacity-70' : 'opacity-35')}
               onError={roleIconFallback(role, evil)}
             />
           </div>
@@ -86,17 +96,16 @@ export default function CharacterToken({ role, isEvil, size, idPrefix, className
       {role && (
         <svg
           viewBox="0 0 200 200"
-          opacity={isDead ? 0.6 : 1}
           className="w-full h-full absolute inset-0 z-20 select-none pointer-events-none"
         >
           <text
-            fill={teamFill(role.team)}
+            fill={isDead ? teamFillDead(role.team) : teamFill(role.team)}
             style={{ fontSize: 18, fontWeight: 700, letterSpacing: '0.025em', textTransform: 'uppercase' }}
           >
             <textPath href={`#token-top-${idPrefix}`} startOffset="50%" textAnchor="middle">{role.name}</textPath>
           </text>
           <text
-            fill={teamFill(role.team)}
+            fill={isDead ? teamFillDead(role.team) : teamFill(role.team)}
             style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' }}
           >
             <textPath href={`#token-bottom-${idPrefix}`} startOffset="50%" textAnchor="middle">{role.team}</textPath>
