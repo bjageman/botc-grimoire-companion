@@ -1,4 +1,5 @@
 import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useScrollLock } from '../../hooks/useScrollLock';
 import { Search, X, Settings } from 'lucide-react';
 import { cn } from '../../utils/cn';
@@ -24,6 +25,8 @@ interface Props {
   roles: Role[];
   scriptAuthor?: string;
   isLightModeActive: boolean;
+  /** Storyteller-only: enables the per-character Notes prompts in the detail modal. Omitted in player game notes. */
+  enableStorytellerNotes?: boolean;
 }
 
 const TEAMS = [
@@ -34,7 +37,9 @@ const TEAMS = [
   { key: 'traveler',  label: '🟣 Travelers', color: 'text-clocktower-traveler',  border: 'border-clocktower-traveler/15',  hover: 'hover:border-clocktower-traveler/30'  },
 ] as const;
 
-export default function ScriptCharactersModal({ isOpen, onClose, scriptName, roles, scriptAuthor, isLightModeActive }: Props) {
+const TEAM_HOVER: Record<string, string> = Object.fromEntries(TEAMS.map(t => [t.key, t.hover]));
+
+export default function ScriptCharactersModal({ isOpen, onClose, scriptName, roles, scriptAuthor, isLightModeActive, enableStorytellerNotes = false }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [sortAlphabetically, setSortAlphabetically] = useState(() => {
@@ -45,6 +50,15 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
   });
   const [showAllTravelers, setShowAllTravelers] = useState(() => {
     return localStorage.getItem('botc-script-show-all-travelers') === 'true';
+  });
+  const [bigFont, setBigFont] = useState(() => {
+    return localStorage.getItem('botc-script-big-font') === 'true';
+  });
+  const [groupByType, setGroupByType] = useState(() => {
+    return localStorage.getItem('botc-script-group-by-type') !== 'false';
+  });
+  const [doubleColumn, setDoubleColumn] = useState(() => {
+    return localStorage.getItem('botc-script-double-column') !== 'false';
   });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
@@ -64,6 +78,21 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
   const handleToggleAllTravelers = (val: boolean) => {
     setShowAllTravelers(val);
     localStorage.setItem('botc-script-show-all-travelers', String(val));
+  };
+
+  const handleToggleBigFont = (val: boolean) => {
+    setBigFont(val);
+    localStorage.setItem('botc-script-big-font', String(val));
+  };
+
+  const handleToggleGroupByType = (val: boolean) => {
+    setGroupByType(val);
+    localStorage.setItem('botc-script-group-by-type', String(val));
+  };
+
+  const handleToggleDoubleColumn = (val: boolean) => {
+    setDoubleColumn(val);
+    localStorage.setItem('botc-script-double-column', String(val));
   };
 
   useScrollLock(isOpen);
@@ -143,22 +172,62 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
     return grouped;
   }, [filteredRoles, sortAlphabetically]);
 
-  const isEmpty = TEAMS.every(t => byTeam[t.key].length === 0);
+  const flatRoles = useMemo(() => {
+    const list = [...filteredRoles];
+    if (sortAlphabetically) list.sort((a, b) => a.name.localeCompare(b.name));
+    return list;
+  }, [filteredRoles, sortAlphabetically]);
+
+  const isEmpty = filteredRoles.length === 0;
 
   const handleClose = () => { onClose(); setSearchTerm(''); };
 
+  const gridClass = cn(
+    "grid gap-2",
+    showDetail ? "grid-cols-1" : "grid-cols-2",
+    doubleColumn ? "sm:grid-cols-2" : "sm:grid-cols-1"
+  );
+
+  const renderRoleCard = (role: Role) => {
+    const hover = TEAM_HOVER[role.team] ?? '';
+    return (
+      <button
+        key={role.id}
+        type="button"
+        onClick={() => setSelectedRole(role)}
+        className={cn(
+          "flex items-center gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-200 w-full hover:scale-[1.01] cursor-pointer focus:outline-none",
+          isLightModeActive
+            ? `bg-white/80 border-gray-200/60 hover:bg-white ${hover} hover:shadow-sm`
+            : `bg-gray-955/65 border-gray-850/45 hover:bg-gray-850/80 ${hover}`
+        )}
+      >
+        <span className="w-6 h-6 bg-white rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-gray-100">
+          <img key={role.id} src={`/icons/${role.id}.svg`} alt={role.name} className="w-[92%] h-[92%] object-contain"
+            onError={roleIconFallback(role, role.team === 'minion' || role.team === 'demon')} />
+        </span>
+        <span className={cn("min-w-0 flex-1 leading-snug", bigFont ? "text-[13px]" : "text-[11px]", !showDetail && "truncate")}>
+          <span className={cn("font-bold", bigFont ? "text-sm" : "text-xs", isLightModeActive ? "text-gray-900" : "text-gray-100")}>{role.name}</span>
+          {showDetail && abilityFor(role) && (
+            <span className={cn(isLightModeActive ? "text-gray-600" : "text-gray-400")}> — {abilityFor(role)}</span>
+          )}
+        </span>
+      </button>
+    );
+  };
+
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Character list modal */}
       <div
-        className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-2 sm:p-4 backdrop-blur-sm"
         onClick={handleClose}
       >
         <div
           className={cn(
-            "w-full max-w-2xl rounded-lg p-5 flex flex-col shadow-2xl max-h-[85vh]",
+            "w-full max-w-2xl rounded-lg p-5 flex flex-col shadow-2xl max-h-[92vh] sm:max-h-[85vh]",
             isLightModeActive ? "bg-[#fdfaf2] border border-amber-900/10 text-gray-800" : "bg-gray-900 border border-gray-800 text-gray-150"
           )}
           onClick={(e) => e.stopPropagation()}
@@ -254,50 +323,65 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
                       isLightModeActive={isLightModeActive}
                     />
                   </label>
+                  <label className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-md select-none cursor-pointer hover:bg-gray-500/10">
+                    <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-700" : "text-gray-300")}>
+                      Bigger Font
+                    </span>
+                    <ToggleSwitch
+                      id="script-big-font-checkbox"
+                      checked={bigFont}
+                      onChange={handleToggleBigFont}
+                      isLightModeActive={isLightModeActive}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-3 px-2 py-1.5 rounded-md select-none cursor-pointer hover:bg-gray-500/10">
+                    <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-700" : "text-gray-300")}>
+                      Group by Type
+                    </span>
+                    <ToggleSwitch
+                      id="script-group-by-type-checkbox"
+                      checked={groupByType}
+                      onChange={handleToggleGroupByType}
+                      isLightModeActive={isLightModeActive}
+                    />
+                  </label>
+                  <label className="hidden sm:flex items-center justify-between gap-3 px-2 py-1.5 rounded-md select-none cursor-pointer hover:bg-gray-500/10">
+                    <span className={cn("text-xs font-semibold", isLightModeActive ? "text-gray-700" : "text-gray-300")}>
+                      2 Columns
+                    </span>
+                    <ToggleSwitch
+                      id="script-double-column-checkbox"
+                      checked={doubleColumn}
+                      onChange={handleToggleDoubleColumn}
+                      isLightModeActive={isLightModeActive}
+                    />
+                  </label>
                 </div>
               )}
             </div>
           </div>
 
           <div className="overflow-y-auto overscroll-contain flex-1 space-y-5 pr-1 select-none">
-            {TEAMS.map(({ key, label, color, border, hover }) => {
-              const teamRoles = byTeam[key];
-              if (teamRoles.length === 0) return null;
-              return (
-                <div key={key} className="space-y-2">
-                  <h4 className={cn("text-xs uppercase font-bold tracking-wider border-b pb-1 flex items-center gap-1.5", color, border)}>
-                    {label} <span className="text-[10px] text-gray-500 font-normal font-mono">({teamRoles.length})</span>
-                  </h4>
-                  <div className={cn("grid gap-2", showDetail ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-2")}>
-                    {teamRoles.map(role => (
-                      <button
-                        key={role.id}
-                        type="button"
-                        onClick={() => setSelectedRole(role)}
-                        className={cn(
-                          "flex gap-2 px-3 py-2 rounded-lg border text-left transition-all duration-200 w-full hover:scale-[1.01] cursor-pointer focus:outline-none",
-                          showDetail ? "items-start" : "items-center",
-                          isLightModeActive
-                            ? `bg-white/80 border-gray-200/60 hover:bg-white ${hover} hover:shadow-sm`
-                            : `bg-gray-955/65 border-gray-850/45 hover:bg-gray-850/80 ${hover}`
-                        )}
-                      >
-                        <span className={cn("w-6 h-6 bg-white rounded-full overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-gray-100", showDetail && "mt-0.5")}>
-                          <img key={role.id} src={`/icons/${role.id}.svg`} alt={role.name} className="w-[75%] h-[75%] object-contain"
-                            onError={roleIconFallback(role, role.team === 'minion' || role.team === 'demon')} />
-                        </span>
-                        <span className={cn("min-w-0 flex-1 text-[11px] leading-snug", !showDetail && "truncate")}>
-                          <span className={cn("font-bold text-xs", isLightModeActive ? "text-gray-900" : "text-gray-100")}>{role.name}</span>
-                          {showDetail && abilityFor(role) && (
-                            <span className={cn(isLightModeActive ? "text-gray-600" : "text-gray-400")}> — {abilityFor(role)}</span>
-                          )}
-                        </span>
-                      </button>
-                    ))}
+            {groupByType ? (
+              TEAMS.map(({ key, label, color, border }) => {
+                const teamRoles = byTeam[key];
+                if (teamRoles.length === 0) return null;
+                return (
+                  <div key={key} className="space-y-2">
+                    <h4 className={cn("text-xs uppercase font-bold tracking-wider border-b pb-1 flex items-center gap-1.5", color, border)}>
+                      {label} <span className="text-[10px] text-gray-500 font-normal font-mono">({teamRoles.length})</span>
+                    </h4>
+                    <div className={gridClass}>
+                      {teamRoles.map(renderRoleCard)}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className={gridClass}>
+                {flatRoles.map(renderRoleCard)}
+              </div>
+            )}
             {isEmpty && (
               <div className="text-center py-8 text-sm text-gray-500 italic">No matching characters found.</div>
             )}
@@ -311,10 +395,12 @@ export default function ScriptCharactersModal({ isOpen, onClose, scriptName, rol
           role={selectedRole}
           isLightModeActive={isLightModeActive}
           onClose={() => setSelectedRole(null)}
+          enableStorytellerNotes={enableStorytellerNotes}
           backdropId="script-character-details-backdrop"
           modalId="script-character-details-modal"
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }
